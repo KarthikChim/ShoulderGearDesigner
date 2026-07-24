@@ -161,6 +161,17 @@ When no candidate passes, this command writes only diagnostics, search data,
 plots, tooth metrics, and the engineering report. It does not emit geometry
 that could be mistaken for a printable prototype.
 
+For the explicitly unloaded, hand-driven plastic demonstration, run:
+
+```bash
+python create_bench_prototype.py
+```
+
+This performs a practical search and rechecks a passing candidate at 2,001
+positions before exporting `BenchPrototype_*` files. Those files are for
+low-speed hand testing only: no motors, no loads, no body attachment, and no
+human use.
+
 ## Project structure
 
 - `main.py` — application entry point
