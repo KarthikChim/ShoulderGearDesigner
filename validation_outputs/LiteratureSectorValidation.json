@@ -1,0 +1,265 @@
+{
+  "watermark": "RESEARCH BENCH PROTOTYPE \u2014 NOT FOR HUMAN USE",
+  "source": "McClure2001",
+  "condition": {
+    "condition_id": "healthy_unloaded_raising_scapular_plane",
+    "population": "healthy",
+    "healthy_only": true,
+    "loaded": false,
+    "direction": "Raising",
+    "motion_type": "Dynamic scapular-plane abduction",
+    "motion_plane": "40 degrees anterior to frontal",
+    "primary_variable": "ST_UpwardRotation_deg",
+    "supported_range_deg": [
+      11.0,
+      147.0
+    ],
+    "allowed_papers": [
+      "McClure2001"
+    ],
+    "gh_decomposition": {
+      "mode": "HT_minus_ST_approximation",
+      "enabled": false,
+      "warning": "HT elevation is not formally identical to GH elevation plus scapular upward rotation; enable only as an explicit engineering approximation."
+    },
+    "extrapolation": "forbidden"
+  },
+  "valid_range_deg": [
+    11.0,
+    147.0
+  ],
+  "config": {
+    "input_sector_angle_deg": 180.0,
+    "output_scale_rad_per_deg": 0.017453292519943295,
+    "phi_start_rad": 0.0,
+    "psi_start_rad": 0.0,
+    "center_distance": 120.0,
+    "minimum_ratio": 0.08,
+    "minimum_pitch_radius": 6.0,
+    "near_zero_dst_de": 0.02,
+    "sample_count": 4001,
+    "entry_transition_deg": 8.0,
+    "exit_transition_deg": 8.0,
+    "mounting_region_deg": 18.0,
+    "module": 2.5,
+    "pressure_angle_deg": 20.0,
+    "addendum_factor": 1.0,
+    "dedendum_factor": 1.25,
+    "backlash": 0.15,
+    "root_fillet_factor": 0.3
+  },
+  "boundaries": {
+    "active_input_bounds_rad": [
+      0.0,
+      3.141592653589793
+    ],
+    "transition_input_bounds_rad": [
+      -0.13962634015954636,
+      3.2812189937493397
+    ],
+    "mounting_input_bounds_rad": [
+      -0.45378560551852565,
+      3.595378259108319
+    ],
+    "hard_stop_elevation_deg": [
+      11.0,
+      147.0
+    ],
+    "transition_biomechanics_included": false,
+    "wraps_or_closes": false
+  },
+  "raw_slope_audit": {
+    "minimum_dst_de": 3.491227519880624e-05,
+    "maximum_dst_de": 0.9524581057440713,
+    "minimum_ratio": 2.6378163483542493e-05,
+    "maximum_ratio": 0.7196350132288539,
+    "nonpositive_elevations_deg": [],
+    "near_zero_regions_deg": [
+      [
+        11.0,
+        14.57
+      ]
+    ]
+  },
+  "regularized_slope_audit": {
+    "minimum_dst_de": 0.1058823529410815,
+    "maximum_dst_de": 0.9301164795395509,
+    "minimum_ratio": 0.07999999999992824,
+    "maximum_ratio": 0.7027546734298828,
+    "nonpositive_elevations_deg": [],
+    "near_zero_regions_deg": []
+  },
+  "regularization": {
+    "separately_identified": true,
+    "endpoint_excursion_preserved": true,
+    "maximum_difference_deg": 0.971388564827361,
+    "rms_difference_deg": 0.6814169765324751
+  },
+  "raw_validation": {
+    "candidate": "raw",
+    "maximum_st_error_deg": 0.0,
+    "rms_st_error_deg": 0.0,
+    "maximum_derivative_error": 0.0,
+    "endpoint_error_deg": 0.0,
+    "no_extrapolation": true,
+    "monotonic_input": true,
+    "monotonic_output": true,
+    "finite_positive_ratio": true,
+    "constant_center_distance": true,
+    "maximum_center_error": 2.842170943040401e-14,
+    "finite_radii": true,
+    "minimum_radius_valid": false,
+    "minimum_pitch_radius": 0.0031652961233264846,
+    "input_self_intersection_free": true,
+    "output_self_intersection_free": true,
+    "no_assembled_pitch_overlap": false,
+    "continuous_tangent": false,
+    "bounded_curvature": false,
+    "active_boundary_continuous": true,
+    "adjacent_tooth_overlap_free": false,
+    "mating_interference_free": false,
+    "minimum_root_thickness": 1.5021768528234767,
+    "undercut_risk": false,
+    "contact_ratio_estimate": 1.3309014068289726,
+    "backlash_estimate": 0.15,
+    "minimum_tip_clearance": 0.625,
+    "hard_stops_present": true,
+    "no_wrapping": true,
+    "decision": "GO FOR SOFTWARE SIMULATION",
+    "warnings": [
+      "Pitch radius falls below the configured minimum.",
+      "Complete sector blanks and loaded mating-interference analysis are absent.",
+      "Contact ratio is an unloaded geometric estimate only.",
+      "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
+    ]
+  },
+  "regularized_validation": {
+    "candidate": "regularized",
+    "maximum_st_error_deg": 0.971388564827361,
+    "rms_st_error_deg": 0.6814169765324751,
+    "maximum_derivative_error": 0.1058474406658827,
+    "endpoint_error_deg": 0.0,
+    "no_extrapolation": true,
+    "monotonic_input": true,
+    "monotonic_output": true,
+    "finite_positive_ratio": true,
+    "constant_center_distance": true,
+    "maximum_center_error": 2.842170943040401e-14,
+    "finite_radii": true,
+    "minimum_radius_valid": true,
+    "minimum_pitch_radius": 8.888888888881509,
+    "input_self_intersection_free": true,
+    "output_self_intersection_free": true,
+    "no_assembled_pitch_overlap": true,
+    "continuous_tangent": false,
+    "bounded_curvature": false,
+    "active_boundary_continuous": true,
+    "adjacent_tooth_overlap_free": false,
+    "mating_interference_free": false,
+    "minimum_root_thickness": 1.5021768528234767,
+    "undercut_risk": false,
+    "contact_ratio_estimate": 1.3309014068289726,
+    "backlash_estimate": 0.15,
+    "minimum_tip_clearance": 0.625,
+    "hard_stops_present": true,
+    "no_wrapping": true,
+    "decision": "GO FOR SOFTWARE SIMULATION",
+    "warnings": [
+      "Regularized candidate differs from the raw research target; maximum deviation 0.971389\u00b0.",
+      "Complete sector blanks and loaded mating-interference analysis are absent.",
+      "Contact ratio is an unloaded geometric estimate only.",
+      "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
+    ]
+  },
+  "tooth_counts": {
+    "raw_input": 29,
+    "raw_output": 29,
+    "regularized_input": 27,
+    "regularized_output": 27
+  },
+  "comparison": [
+    {
+      "name": "legacy_periodic_full_revolution",
+      "maximum_st_error_deg": 19.073000000000008,
+      "rms_st_error_deg": 11.92606262413564,
+      "maximum_derivative_error": 0.6191247724106683,
+      "endpoint_distortion_deg": -19.073000000000008,
+      "minimum_ratio": 0.5778791830201551,
+      "maximum_ratio": 1.5327532711937992,
+      "minimum_pitch_radius": 43.94854986912697,
+      "maximum_pitch_radius": 76.05145013087304,
+      "required_center_distance": 120.0,
+      "estimated_undercut_risk": false,
+      "estimated_contact_ratio": null,
+      "warnings": [
+        "Uses the prohibited legacy ratio schedule; comparison only."
+      ]
+    },
+    {
+      "name": "literature_forced_full_revolution",
+      "maximum_st_error_deg": 0.08149421034651994,
+      "rms_st_error_deg": 0.007112940179281921,
+      "maximum_derivative_error": 0.4792342180030552,
+      "endpoint_distortion_deg": 0.0,
+      "minimum_ratio": -0.4567461083519746,
+      "maximum_ratio": 2.9968334568583903,
+      "minimum_pitch_radius": null,
+      "maximum_pitch_radius": null,
+      "required_center_distance": 120.0,
+      "estimated_undercut_risk": true,
+      "estimated_contact_ratio": null,
+      "warnings": [
+        "Negative ratio at periodic closure; mechanically invalid."
+      ]
+    },
+    {
+      "name": "literature_partial_sector_raw",
+      "maximum_st_error_deg": 0.0,
+      "rms_st_error_deg": 0.0,
+      "maximum_derivative_error": 0.0,
+      "endpoint_distortion_deg": 0.0,
+      "minimum_ratio": 2.6378163483542493e-05,
+      "maximum_ratio": 0.7196350132288539,
+      "minimum_pitch_radius": 0.0031652961233264846,
+      "maximum_pitch_radius": 119.99683470387667,
+      "maximum_curvature_proxy": 1.0000000000004547,
+      "required_center_distance": 120.0,
+      "estimated_undercut_risk": false,
+      "estimated_contact_ratio": 1.3309014068289726,
+      "warnings": [
+        "Pitch radius falls below the configured minimum.",
+        "Complete sector blanks and loaded mating-interference analysis are absent.",
+        "Contact ratio is an unloaded geometric estimate only.",
+        "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
+      ]
+    },
+    {
+      "name": "literature_partial_sector_regularized",
+      "maximum_st_error_deg": 0.971388564827361,
+      "rms_st_error_deg": 0.6814169765324751,
+      "maximum_derivative_error": 0.1058474406658827,
+      "endpoint_distortion_deg": 0.0,
+      "minimum_ratio": 0.07999999999992824,
+      "maximum_ratio": 0.7027546734298828,
+      "minimum_pitch_radius": 8.888888888881509,
+      "maximum_pitch_radius": 111.1111111111185,
+      "maximum_curvature_proxy": 1.0000000000004547,
+      "required_center_distance": 120.0,
+      "estimated_undercut_risk": false,
+      "estimated_contact_ratio": 1.3309014068289726,
+      "warnings": [
+        "Regularized candidate differs from the raw research target; maximum deviation 0.971389\u00b0.",
+        "Complete sector blanks and loaded mating-interference analysis are absent.",
+        "Contact ratio is an unloaded geometric estimate only.",
+        "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
+      ]
+    }
+  ],
+  "final_decision": "GO FOR SOFTWARE SIMULATION",
+  "remaining_blockers": [
+    "Regularized candidate differs from the raw research target; maximum deviation 0.971389\u00b0.",
+    "Complete sector blanks and loaded mating-interference analysis are absent.",
+    "Contact ratio is an unloaded geometric estimate only.",
+    "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
+  ]
+}

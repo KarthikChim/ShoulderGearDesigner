@@ -87,6 +87,13 @@ class LiteratureShoulderModel:
         result = self._spline(values, nu=1)
         return float(result) if np.ndim(elevation_deg) == 0 else result
 
+    def d2st_delevation2_at(self, elevation_deg):
+        """Return the analytical PCHIP second derivative inside support."""
+
+        values = self._check_range(elevation_deg)
+        result = self._spline(values, nu=2)
+        return float(result) if np.ndim(elevation_deg) == 0 else result
+
     def dgh_delevation_at(self, elevation_deg):
         if not self.allow_approximate_gh:
             raise RuntimeError(self.gh_approximation_label)

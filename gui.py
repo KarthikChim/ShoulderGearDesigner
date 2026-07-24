@@ -8,6 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -15,6 +16,8 @@ from drawing import Renderer
 from export_csv import CsvExporter
 from export_dxf import DxfExporter
 from export_svg import SvgExporter
+from biomechanics.literature_model import LiteratureShoulderModel
+from literature_sector import LiteratureSectorTransmission, SectorDesignConfig
 from settings import Settings
 from simulation import Simulation
 
@@ -28,6 +31,17 @@ class ShoulderGearDesignerGUI:
         self.root.minsize(1100, 700)
         self.settings = settings or Settings()
         self.simulation = Simulation(self.settings)
+        model_path = Path(__file__).resolve().parent / "ConsensusShoulderModel.json"
+        self.literature_model = LiteratureShoulderModel(model_path)
+        sector_config = SectorDesignConfig(
+            center_distance=self.settings.center_distance
+        )
+        self.raw_sector = LiteratureSectorTransmission(
+            self.literature_model, sector_config, regularized=False
+        )
+        self.regularized_sector = LiteratureSectorTransmission(
+            self.literature_model, sector_config, regularized=True
+        )
         self._last_tick = time.perf_counter()
         self._fps = 0.0
         self._camera_limits: tuple[tuple[float, float], tuple[float, float]] | None = None
@@ -44,6 +58,7 @@ class ShoulderGearDesignerGUI:
         self.speed_var = tk.DoubleVar(value=self.settings.simulation_speed_deg_s)
         self.angle_var = tk.DoubleVar(value=0.0)
         self.advanced_debug_var = tk.BooleanVar(value=self.settings.advanced_debug)
+        self.pathway_var = tk.StringVar(value="Legacy")
 
         self.live_vars = {
             "Mechanical ratio": tk.StringVar(),
@@ -54,6 +69,8 @@ class ShoulderGearDesignerGUI:
             "GH error": tk.StringVar(),
             "ST error": tk.StringVar(),
             "Ratio error": tk.StringVar(),
+            "Source": tk.StringVar(value="Legacy schedule"),
+            "Status": tk.StringVar(value="Legacy"),
         }
 
     def _build_layout(self) -> None:
@@ -98,6 +115,27 @@ class ShoulderGearDesignerGUI:
             row=0, column=0, columnspan=2, sticky="w", pady=(0, 8)
         )
         row = 1
+        ttk.Label(controls, text="Pathway").grid(
+            row=row, column=0, sticky="w", pady=3
+        )
+        self.pathway_selector = ttk.Combobox(
+            controls,
+            textvariable=self.pathway_var,
+            state="readonly",
+            values=(
+                "Legacy",
+                "Literature sector: raw",
+                "Literature sector: regularized",
+            ),
+            width=25,
+        )
+        self.pathway_selector.grid(
+            row=row, column=1, sticky="ew", pady=3
+        )
+        self.pathway_selector.bind(
+            "<<ComboboxSelected>>", self._pathway_changed
+        )
+        row += 1
         for label, variable in (
             ("Center Distance", self.center_distance_var),
             ("Simulation Speed", self.speed_var),
@@ -211,6 +249,15 @@ class ShoulderGearDesignerGUI:
             self.settings.simulation_speed_deg_s = self.speed_var.get()
             self.settings.validate()
             self.simulation.rebuild_geometry()
+            sector_config = SectorDesignConfig(
+                center_distance=self.settings.center_distance
+            )
+            self.raw_sector = LiteratureSectorTransmission(
+                self.literature_model, sector_config, regularized=False
+            )
+            self.regularized_sector = LiteratureSectorTransmission(
+                self.literature_model, sector_config, regularized=True
+            )
             self._camera_limits = None
             self._render()
         except (tk.TclError, ValueError) as error:
@@ -228,6 +275,21 @@ class ShoulderGearDesignerGUI:
         self.simulation.set_elevation(float(raw_value))
         self._render()
 
+    def _pathway_changed(self, _event=None) -> None:
+        literature = self.pathway_var.get().startswith("Literature")
+        low, high = (
+            self.literature_model.valid_range_deg
+            if literature
+            else (0.0, self.settings.max_elevation_deg)
+        )
+        self.angle_slider.configure(from_=low, to=high)
+        self.simulation.animator.pause()
+        self.simulation.set_elevation(low)
+        self.simulation.animator.current_deg = low
+        self.angle_var.set(low)
+        self._camera_limits = None
+        self._render()
+
     def _step(self, amount: float) -> None:
         self.simulation.animator.pause()
         self.simulation.animator.step(amount)
@@ -237,8 +299,14 @@ class ShoulderGearDesignerGUI:
 
     def _reset(self) -> None:
         self.simulation.animator.reset()
-        self.simulation.set_elevation(0.0)
-        self.angle_var.set(0.0)
+        low = (
+            self.literature_model.valid_range_deg[0]
+            if self.pathway_var.get().startswith("Literature")
+            else 0.0
+        )
+        self.simulation.animator.current_deg = low
+        self.simulation.set_elevation(low)
+        self.angle_var.set(low)
         self._render()
 
     def _schedule_tick(self) -> None:
@@ -253,6 +321,15 @@ class ShoulderGearDesignerGUI:
             self._fps = instantaneous_fps if self._fps == 0 else 0.9 * self._fps + 0.1 * instantaneous_fps
         if self.simulation.animator.playing:
             self.simulation.update(elapsed)
+            if (
+                self.pathway_var.get().startswith("Literature")
+                and self.simulation.animator.current_deg
+                >= self.literature_model.valid_range_deg[1]
+            ):
+                self.simulation.animator.current_deg = (
+                    self.literature_model.valid_range_deg[1]
+                )
+                self.simulation.animator.pause()
             self.angle_var.set(self.simulation.animator.current_deg)
             self._render()
         else:
@@ -272,6 +349,70 @@ class ShoulderGearDesignerGUI:
 
     def _update_live_values(self) -> None:
         state = self.simulation.state
+        pathway = self.pathway_var.get()
+        if pathway.startswith("Literature"):
+            elevation = float(
+                np.clip(
+                    state.elevation_deg,
+                    *self.literature_model.valid_range_deg,
+                )
+            )
+            transmission = (
+                self.regularized_sector
+                if pathway.endswith("regularized")
+                else self.raw_sector
+            )
+            target_st = float(self.literature_model.st_angle_at(elevation))
+            realized_st = float(transmission.st_angle(elevation))
+            derivative = float(transmission.dst_de(elevation))
+            ratio = float(transmission.ratio(elevation))
+            uncertainty = self.literature_model.uncertainty_at(elevation)
+            self.live_vars["Mechanical ratio"].set(f"{ratio:.5f}")
+            self.live_vars["Current GH"].set("HT−ST approx.")
+            self.live_vars["Current ST"].set(f"{realized_st:6.2f}°")
+            self.live_vars["Actual GH:ST"].set(
+                f"{(1.0 - derivative) / derivative:.3f}:1"
+                if derivative > 0
+                else "invalid"
+            )
+            self.live_vars["Target GH:ST"].set("McClure")
+            self.live_vars["GH error"].set("not asserted")
+            self.live_vars["ST error"].set(
+                f"{realized_st - target_st:+.3f}°"
+            )
+            self.live_vars["Ratio error"].set(
+                f"CI ±{uncertainty['half_width_deg']:.2f}°"
+            )
+            self.live_vars["Source"].set("McClure2001")
+            self.live_vars["Status"].set(
+                "regularized" if transmission.regularized else "raw"
+            )
+            max_error = (
+                np.max(np.abs(transmission.regularization_difference_deg))
+                if transmission.regularized
+                else 0.0
+            )
+            rms_error = (
+                np.sqrt(
+                    np.mean(transmission.regularization_difference_deg**2)
+                )
+                if transmission.regularized
+                else 0.0
+            )
+            audit = transmission.slope_audit()
+            self.validation_label.configure(
+                text=(
+                    "GO FOR SOFTWARE SIMULATION\n"
+                    "RESEARCH BENCH PROTOTYPE — NOT FOR HUMAN USE\n"
+                    "Source: McClure2001; verified range 11°–147°\n"
+                    f"Candidate: {transmission.candidate}\n"
+                    f"Max/RMS target error: {max_error:.4f}° / {rms_error:.4f}°\n"
+                    f"Ratio range: {audit.minimum_ratio:.6g}–"
+                    f"{audit.maximum_ratio:.6g}\n"
+                    "Manufacturing-ready export is disabled."
+                )
+            )
+            return
         phase = (
             state.elevation_deg
             / self.settings.max_elevation_deg
@@ -300,6 +441,8 @@ class ShoulderGearDesignerGUI:
         self.live_vars["GH error"].set(f"{state.gh_deg - target_gh:+.3f}°")
         self.live_vars["ST error"].set(f"{state.st_deg - target_st:+.3f}°")
         self.live_vars["Ratio error"].set(f"{ratio_error:+.3f}")
+        self.live_vars["Source"].set("Legacy schedule")
+        self.live_vars["Status"].set("Legacy")
         self._update_validation_panel()
 
     def _update_validation_panel(self) -> None:
@@ -387,6 +530,13 @@ class ShoulderGearDesignerGUI:
         self._render()
 
     def _export_svg(self) -> None:
+        if self.pathway_var.get().startswith("Literature"):
+            messagebox.showwarning(
+                "Research-only export",
+                "Manufacturing-ready export is disabled. Use the watermarked "
+                "validation_outputs/literature_sector_pair.svg research artifact.",
+            )
+            return
         destination = filedialog.asksaveasfilename(
             defaultextension=".svg", filetypes=[("SVG drawing", "*.svg")]
         )
@@ -394,6 +544,13 @@ class ShoulderGearDesignerGUI:
             SvgExporter().export(self.simulation, destination)
 
     def _export_dxf(self) -> None:
+        if self.pathway_var.get().startswith("Literature"):
+            messagebox.showwarning(
+                "Research-only export",
+                "Manufacturing-ready export is disabled. Use the watermarked "
+                "literature_sector_* DXF research artifacts.",
+            )
+            return
         destination = filedialog.asksaveasfilename(
             defaultextension=".dxf", filetypes=[("DXF drawing", "*.dxf")]
         )
@@ -401,6 +558,13 @@ class ShoulderGearDesignerGUI:
             DxfExporter().export(self.simulation, destination)
 
     def _export_csv(self) -> None:
+        if self.pathway_var.get().startswith("Literature"):
+            messagebox.showwarning(
+                "Research-only export",
+                "Use the provenance-preserving LiteratureSector*.csv files in "
+                "validation_outputs.",
+            )
+            return
         destination = filedialog.asksaveasfilename(
             defaultextension=".csv", filetypes=[("CSV data", "*.csv")]
         )

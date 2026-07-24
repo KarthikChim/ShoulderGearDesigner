@@ -120,9 +120,34 @@ For transmission `m = dψ/dφ` and fixed center distance `a`, pitch radii are:
 ```text
 r_input  = a m / (1 + m)
 r_output = a / (1 + m)
+```
+
 The program samples 4097 double-precision points, checks closure and velocity
 continuity, verifies the fixed-radius sum, and uses Shapely to confirm that both
 pitch curves are valid convex loops that do not overlap at assembly.
+
+## Verified literature partial sector
+
+The literature pathway is separate from the legacy periodic model. It loads
+the committed `ConsensusShoulderModel.json`, uses only the verified
+McClure2001 healthy/unloaded/raising scapular-plane condition, and is strictly
+limited to 11°–147° HT elevation.
+
+Generate its research-only validation package with:
+
+```bash
+python validate_literature_sector.py
+```
+
+This produces raw and mechanically regularized open-sector candidates under
+`validation_outputs/`. The raw target is never overwritten, neither candidate
+wraps into a full revolution, and all geometry exports are watermarked:
+
+> RESEARCH BENCH PROTOTYPE — NOT FOR HUMAN USE
+
+The GUI pathway selector exposes **Legacy**, **Literature sector: raw**, and
+**Literature sector: regularized**. Manufacturing-ready export is blocked for
+both literature pathways.
 
 ## Project structure
 
