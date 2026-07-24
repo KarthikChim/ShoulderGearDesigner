@@ -381,7 +381,7 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         // Cut bores only after the lofts exist. This guarantees genuine
         // cylindrical through-holes instead of accidentally extruding the
         // inner sketch region as a plug.
-        opCylinder(context, id + "inputBoreTool", {{
+        fCylinder(context, id + "inputBoreTool", {{
             "bottomCenter" : vector(0, 0, -1) * millimeter,
             "topCenter" : vector(0, 0,
                 definition.thickness / millimeter + 1) * millimeter,
@@ -392,7 +392,7 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
             "targets" : qCreatedBy(id + "inputGear", EntityType.BODY),
             "operationType" : BooleanOperationType.SUBTRACTION
         }});
-        opCylinder(context, id + "outputBoreTool", {{
+        fCylinder(context, id + "outputBoreTool", {{
             "bottomCenter" : vector(
                 definition.centerDistance / millimeter, 0, -1) * millimeter,
             "topCenter" : vector(
