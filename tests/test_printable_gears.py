@@ -139,3 +139,7 @@ def test_exported_stl_step_and_featurescript_are_nonempty(
     assert "INPUT_OUTLINE" in text
     assert "OUTPUT_OUTLINE" in text
     assert "NOT FOR HUMAN OR POWERED USE" in text
+    assert "herringboneBody" in text
+    assert "opLoft" in text
+    assert text.count("opCylinder") == 2
+    assert text.count("BooleanOperationType.SUBTRACTION") == 2

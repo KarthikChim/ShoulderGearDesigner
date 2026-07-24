@@ -297,13 +297,62 @@ const OUTPUT_OUTLINE = [
 {vectors(output_points)}
     ];
 
-function closedOutline(sketch is Sketch, prefix is string, points is array)
+function closedOutline(sketch is Sketch, prefix is string, points is array,
+        angle is ValueWithUnits, offset is Vector)
 {{
+    const c = cos(angle);
+    const s = sin(angle);
     for (var index = 0; index < size(points); index += 1)
+    {{
+        const first = points[index];
+        const second = points[(index + 1) % size(points)];
         skLineSegment(sketch, prefix ~ index, {{
-            "start" : points[index],
-            "end" : points[(index + 1) % size(points)]
+            "start" : vector(
+                first[0] * c - first[1] * s,
+                first[0] * s + first[1] * c) + offset,
+            "end" : vector(
+                second[0] * c - second[1] * s,
+                second[0] * s + second[1] * c) + offset
         }});
+    }}
+}}
+
+function profileAt(context is Context, sketchId is Id, prefix is string,
+        points is array, z is ValueWithUnits, angle is ValueWithUnits,
+        offset is Vector) returns Query
+{{
+    const sketch = newSketchOnPlane(context, sketchId, {{
+        "sketchPlane" : plane(
+            vector(0, 0, z / meter) * meter,
+            vector(0, 0, 1))
+    }});
+    closedOutline(sketch, prefix, points, angle, offset);
+    skSolve(sketch);
+    return qSketchRegion(sketchId);
+}}
+
+function herringboneBody(context is Context, bodyId is Id, prefix is string,
+        points is array, thickness is ValueWithUnits,
+        twist is ValueWithUnits, offset is Vector)
+{{
+    // Five sections create a symmetric double helix. Rotation rises from
+    // zero at the lower face to the requested twist at the center plane,
+    // then reverses back to zero at the upper face.
+    const profiles = [
+        profileAt(context, bodyId + "s0", prefix ~ "s0", points,
+            0 * millimeter, 0 * degree, offset),
+        profileAt(context, bodyId + "s1", prefix ~ "s1", points,
+            thickness / 4, twist / 2, offset),
+        profileAt(context, bodyId + "s2", prefix ~ "s2", points,
+            thickness / 2, twist, offset),
+        profileAt(context, bodyId + "s3", prefix ~ "s3", points,
+            3 * thickness / 4, twist / 2, offset),
+        profileAt(context, bodyId + "s4", prefix ~ "s4", points,
+            thickness, 0 * degree, offset)
+    ];
+    opLoft(context, bodyId, {{
+        "profileSubqueries" : profiles
+    }});
 }}
 
 annotation {{ "Feature Type Name" : "Literature sector gear pair" }}
@@ -315,38 +364,46 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         isLength(definition.thickness, LENGTH_BOUNDS);
         annotation {{ "Name" : "Bore diameter", "Default" : 8 * millimeter }}
         isLength(definition.boreDiameter, LENGTH_BOUNDS);
+        annotation {{ "Name" : "Center distance", "Default" : 120 * millimeter }}
+        isLength(definition.centerDistance, LENGTH_BOUNDS);
+        annotation {{ "Name" : "Herringbone half-angle", "Default" : 8 * degree }}
+        isAngle(definition.helixAngle, ANGLE_360_BOUNDS);
     }}
     {{
-        var inputSketch = newSketchOnPlane(context, id + "inputSketch", {{
-            "sketchPlane" : XY_PLANE
-        }});
-        closedOutline(inputSketch, "input", INPUT_OUTLINE);
-        skCircle(inputSketch, "inputBore", {{
-            "center" : vector(0, 0) * millimeter,
-            "radius" : definition.boreDiameter / 2
-        }});
-        skSolve(inputSketch);
-        opExtrude(context, id + "inputExtrude", {{
-            "entities" : qSketchRegion(id + "inputSketch"),
-            "direction" : vector(0, 0, 1),
-            "endBound" : BoundingType.BLIND,
-            "endDepth" : definition.thickness
-        }});
+        const inputOffset = vector(0, 0) * millimeter;
+        const outputOffset = vector(definition.centerDistance / millimeter, 0)
+            * millimeter;
+        herringboneBody(context, id + "inputGear", "input", INPUT_OUTLINE,
+            definition.thickness, definition.helixAngle, inputOffset);
+        herringboneBody(context, id + "outputGear", "output", OUTPUT_OUTLINE,
+            definition.thickness, -definition.helixAngle, outputOffset);
 
-        var outputSketch = newSketchOnPlane(context, id + "outputSketch", {{
-            "sketchPlane" : XY_PLANE
-        }});
-        closedOutline(outputSketch, "output", OUTPUT_OUTLINE);
-        skCircle(outputSketch, "outputBore", {{
-            "center" : vector(0, 0) * millimeter,
+        // Cut bores only after the lofts exist. This guarantees genuine
+        // cylindrical through-holes instead of accidentally extruding the
+        // inner sketch region as a plug.
+        opCylinder(context, id + "inputBoreTool", {{
+            "bottomCenter" : vector(0, 0, -1) * millimeter,
+            "topCenter" : vector(0, 0,
+                definition.thickness / millimeter + 1) * millimeter,
             "radius" : definition.boreDiameter / 2
         }});
-        skSolve(outputSketch);
-        opExtrude(context, id + "outputExtrude", {{
-            "entities" : qSketchRegion(id + "outputSketch"),
-            "direction" : vector(0, 0, 1),
-            "endBound" : BoundingType.BLIND,
-            "endDepth" : definition.thickness
+        opBoolean(context, id + "inputBoreCut", {{
+            "tools" : qCreatedBy(id + "inputBoreTool", EntityType.BODY),
+            "targets" : qCreatedBy(id + "inputGear", EntityType.BODY),
+            "operationType" : BooleanOperationType.SUBTRACTION
+        }});
+        opCylinder(context, id + "outputBoreTool", {{
+            "bottomCenter" : vector(
+                definition.centerDistance / millimeter, 0, -1) * millimeter,
+            "topCenter" : vector(
+                definition.centerDistance / millimeter, 0,
+                definition.thickness / millimeter + 1) * millimeter,
+            "radius" : definition.boreDiameter / 2
+        }});
+        opBoolean(context, id + "outputBoreCut", {{
+            "tools" : qCreatedBy(id + "outputBoreTool", EntityType.BODY),
+            "targets" : qCreatedBy(id + "outputGear", EntityType.BODY),
+            "operationType" : BooleanOperationType.SUBTRACTION
         }});
     }});
 '''
