@@ -9,6 +9,7 @@ from pathlib import Path
 import ezdxf
 import numpy as np
 import svgwrite
+from shapely.geometry import Point, Polygon
 
 from bench_prototype import (
     BENCH_LABEL,
@@ -140,10 +141,16 @@ def _write_dxf(prototype: BenchPrototype, member: str, path: Path) -> None:
         dxfattribs={"layer": "CLOSED_SECTOR_BODY"},
     )
     for interior in blank.polygon.interiors:
+        ring = Polygon(interior)
+        layer = (
+            "SHAFT_BORE_PLACEHOLDER"
+            if ring.contains(Point(0.0, 0.0))
+            else "OPEN_WEB_CUTOUT"
+        )
         modelspace.add_lwpolyline(
             list(interior.coords),
             close=True,
-            dxfattribs={"layer": "SHAFT_BORE_PLACEHOLDER"},
+            dxfattribs={"layer": layer},
         )
     modelspace.add_lwpolyline(
         pitch.tolist(),
@@ -201,6 +208,22 @@ def _write_svg(prototype: BenchPrototype, path: Path) -> None:
             id="input-closed-sector",
         )
     )
+    # Preserve every open region between the rim, hub, and spokes.
+    for member, blank, offset in (
+        ("input", prototype.input_blank, np.array([0.0, 0.0])),
+        ("output", prototype.output_blank, output_offset),
+    ):
+        for index, interior in enumerate(blank.polygon.interiors, start=1):
+            points = np.asarray(interior.coords, dtype=np.float64) + offset
+            drawing.add(
+                drawing.polygon(
+                    converted(points),
+                    fill="white",
+                    stroke="#111827",
+                    stroke_width=0.18,
+                    id=f"{member}-body-cutout-{index:02d}",
+                )
+            )
     drawing.add(
         drawing.polygon(
             converted(output_boundary),
@@ -210,6 +233,48 @@ def _write_svg(prototype: BenchPrototype, path: Path) -> None:
             id="output-closed-sector",
         )
     )
+    # SVG polygons do not carry Shapely interior rings, so render the two
+    # shaft bores explicitly on top of the filled sector bodies.
+    input_center = converted(np.array([[0.0, 0.0]]))[0]
+    output_center = converted(
+        np.array([[prototype.pitch_data.center_distance, 0.0]])
+    )[0]
+    for center, identifier in (
+        (input_center, "input-shaft-bore"),
+        (output_center, "output-shaft-bore"),
+    ):
+        drawing.add(
+            drawing.circle(
+                center=center,
+                r=prototype.config.bore_radius_mm,
+                fill="white",
+                stroke="#111827",
+                stroke_width=0.25,
+                id=identifier,
+            )
+        )
+    # Keep individual flanks visible even where the completed body union
+    # merges their roots into the rim.
+    for index, tooth in enumerate(prototype.input_teeth, start=1):
+        drawing.add(
+            drawing.polyline(
+                converted(tooth),
+                fill="none",
+                stroke="#7c2d12",
+                stroke_width=0.12,
+                id=f"input-tooth-outline-{index:03d}",
+            )
+        )
+    for index, tooth in enumerate(prototype.output_teeth, start=1):
+        drawing.add(
+            drawing.polyline(
+                converted(tooth + output_offset),
+                fill="none",
+                stroke="#1e3a8a",
+                stroke_width=0.12,
+                id=f"output-tooth-outline-{index:03d}",
+            )
+        )
     drawing.save()
 
 

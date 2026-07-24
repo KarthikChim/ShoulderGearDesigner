@@ -93,6 +93,7 @@ def test_exported_dxf_has_closed_body_bore_and_warning(filename) -> None:
     layers = {entity.dxf.layer for entity in entities}
     assert "CLOSED_SECTOR_BODY" in layers
     assert "SHAFT_BORE_PLACEHOLDER" in layers
+    assert "OPEN_WEB_CUTOUT" in layers
     assert "RESEARCH_ONLY_WARNING" in layers
     bodies = [
         entity
@@ -107,6 +108,10 @@ def test_svg_and_print_guide_are_explicitly_research_only() -> None:
     svg = (OUTPUT / "BenchPrototype_Pair.svg").read_text()
     guide = (OUTPUT / "BenchPrototype_PrintGuide.md").read_text()
     assert "NOT FOR HUMAN OR POWERED USE" in svg
+    assert "input-body-cutout" in svg
+    assert "output-body-cutout" in svg
+    assert "input-tooth-outline" in svg
+    assert "output-tooth-outline" in svg
     assert "NOT FOR HUMAN OR POWERED USE" in guide
     for requirement in (
         "PLA or PETG",

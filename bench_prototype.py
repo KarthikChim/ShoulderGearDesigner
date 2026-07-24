@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 import numpy as np
 from shapely import affinity
-from shapely.geometry import Point, Polygon
+from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import unary_union
 
 from biomechanics.literature_model import LiteratureShoulderModel
 from literature_sector import (
@@ -133,6 +134,116 @@ def _adjacent_overlap_free(polygons: tuple[np.ndarray, ...]) -> bool:
     )
 
 
+def _outward_normals(points: np.ndarray) -> np.ndarray:
+    tangent = np.gradient(points, axis=0)
+    tangent /= np.maximum(np.linalg.norm(tangent, axis=1)[:, None], 1e-15)
+    candidate = np.column_stack((-tangent[:, 1], tangent[:, 0]))
+    return np.where(
+        (np.sum(candidate * points, axis=1) >= 0)[:, None],
+        candidate,
+        -candidate,
+    )
+
+
+def _build_bench_sector_blank(
+    pitch_points: np.ndarray,
+    tooth_polygons: tuple[np.ndarray, ...],
+    config: BenchPrototypeConfig,
+    sector_config: SectorDesignConfig,
+) -> ClosedSectorBlank:
+    """Build a visible rim-and-spoke sector instead of a solid center fan."""
+
+    normals = _outward_normals(pitch_points)
+    root = (
+        pitch_points
+        - sector_config.dedendum_factor * sector_config.module * normals
+    )
+    # The body follows the root curve as a printable rim.  Its inner edge is
+    # offset toward the shaft by the requested web thickness.
+    inner = root - config.web_thickness_mm * normals
+    rim = Polygon(np.vstack((root, inner[::-1]))).buffer(0)
+    hub_radius = max(
+        config.bore_radius_mm + config.web_thickness_mm,
+        2.2 * config.module_mm,
+    )
+    hub = Point(0.0, 0.0).buffer(hub_radius, quad_segs=48)
+    solids = [rim, hub]
+    for points in tooth_polygons:
+        tooth = Polygon(points).buffer(0)
+        solids.append(tooth)
+        centroid = np.array([tooth.centroid.x, tooth.centroid.y])
+        nearest_index = int(
+            np.argmin(np.linalg.norm(pitch_points - centroid, axis=1))
+        )
+        nearest = inner[nearest_index]
+        # Profile relief shrinks the tooth root as well as its flanks.  A
+        # narrow root bridge reconnects that relieved tooth to the rim without
+        # changing the working tip/flank clearance.
+        solids.append(
+            LineString([tuple(centroid), tuple(nearest)]).buffer(
+                max(0.3 * config.module_mm, config.profile_relief_mm),
+                cap_style="round",
+            )
+        )
+
+    # Three narrow radial webs connect the hub to the sector rim without
+    # obscuring the gear teeth or filling the entire swept sector.
+    for index in sorted({0, len(inner) // 2, len(inner) - 1}):
+        spoke = LineString([(0.0, 0.0), tuple(inner[index])]).buffer(
+            config.web_thickness_mm / 2.0,
+            cap_style="square",
+            join_style="round",
+        )
+        solids.append(spoke)
+
+    # Compact stop pads at both ends provide visible mechanical-limit faces.
+    stop_size = max(2.0 * config.module_mm, config.web_thickness_mm)
+    for endpoint in (root[0], root[-1]):
+        direction = endpoint / max(np.linalg.norm(endpoint), 1e-15)
+        tangent = np.array([-direction[1], direction[0]])
+        center = endpoint - 0.2 * stop_size * direction
+        corners = np.array(
+            [
+                center - 0.7 * stop_size * direction - 0.5 * stop_size * tangent,
+                center + 0.5 * stop_size * direction - 0.5 * stop_size * tangent,
+                center + 0.5 * stop_size * direction + 0.5 * stop_size * tangent,
+                center - 0.7 * stop_size * direction + 0.5 * stop_size * tangent,
+            ]
+        )
+        solids.append(Polygon(corners))
+
+    body = unary_union(solids).buffer(0)
+    if body.geom_type == "MultiPolygon":
+        # A disconnected tooth is a construction failure, not something to
+        # silently discard.
+        raise ValueError("Bench sector rim, teeth, hub, and spokes are disconnected.")
+    body = body.difference(
+        Point(0.0, 0.0).buffer(config.bore_radius_mm, quad_segs=48)
+    )
+    boundary = np.asarray(body.exterior.coords, dtype=np.float64)
+    closed = bool(
+        len(boundary) > 3
+        and np.linalg.norm(boundary[0] - boundary[-1]) < 1e-10
+    )
+    valid = bool(
+        body.geom_type == "Polygon"
+        and body.is_valid
+        and closed
+        and len(body.interiors) >= 1
+    )
+    warnings = () if valid else ("Rim-and-spoke sector body is invalid.",)
+    return ClosedSectorBlank(
+        polygon=body,
+        boundary=boundary,
+        bore_radius=config.bore_radius_mm,
+        web_thickness=config.web_thickness_mm,
+        hard_stop_size=stop_size,
+        valid=valid,
+        closed=closed,
+        warnings=warnings,
+    )
+
+
 def _transform_teeth(
     polygons: tuple[np.ndarray, ...],
     angle_rad: float,
@@ -246,19 +357,17 @@ def build_bench_prototype(
         input_arc_positions=original_teeth.input_arc_positions,
         output_arc_positions=original_teeth.output_arc_positions,
     )
-    input_blank = build_closed_sector_blank(
+    input_blank = _build_bench_sector_blank(
         data.input_points,
         input_teeth,
+        config,
         transmission.config,
-        bore_radius=config.bore_radius_mm,
-        web_thickness=config.web_thickness_mm,
     )
-    output_blank = build_closed_sector_blank(
+    output_blank = _build_bench_sector_blank(
         data.output_points,
         output_teeth,
+        config,
         transmission.config,
-        bore_radius=config.bore_radius_mm,
-        web_thickness=config.web_thickness_mm,
     )
     mesh, no_skipping = _mesh_sweep(data, input_teeth, output_teeth)
 
