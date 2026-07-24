@@ -128,6 +128,7 @@
     "selected_design_conventions_verified": true
   },
   "validation_valid": true,
+  "conventions_verified": true,
   "validation": {
     "valid": true,
     "row_count": 1181,
@@ -104246,6 +104247,8 @@
       535
     ],
     "conventions_verified": true,
+    "extrapolated_point_count": 0,
+    "all_points_within_supported_range": true,
     "spline": {
       "interpolation": "PCHIP",
       "knots_deg": [

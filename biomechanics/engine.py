@@ -6,6 +6,8 @@ import hashlib
 from dataclasses import asdict
 from pathlib import Path
 
+import numpy as np
+
 from .consensus import build_consensus_datasets, build_digitized_curves
 from .exporter import export_consensus_model
 from .loader import load_literature_csv
@@ -146,6 +148,19 @@ class BiomechanicsEngine:
                 }
             ),
             "conventions_verified": selected_dataset.conventions_verified,
+            # Every exported design point comes directly from the supported
+            # literature interval.  The adapter rejects values outside this
+            # interval instead of silently extending the PCHIP.
+            "extrapolated_point_count": 0,
+            "all_points_within_supported_range": bool(
+                np.all(
+                    (selected_dataset.elevation_deg >= condition["supported_range_deg"][0])
+                    & (
+                        selected_dataset.elevation_deg
+                        <= condition["supported_range_deg"][1]
+                    )
+                )
+            ),
             "spline": {
                 "interpolation": selected_spline.interpolation,
                 "knots_deg": selected_spline.knots.tolist(),

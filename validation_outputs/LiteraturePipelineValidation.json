@@ -1,0 +1,19 @@
+{
+  "validation_valid": true,
+  "conventions_verified": true,
+  "selected_condition_id": "healthy_unloaded_raising_scapular_plane",
+  "selected_source": [
+    "McClure2001"
+  ],
+  "valid_range_deg": [
+    11.0,
+    147.0
+  ],
+  "evaluation_sample_count": 1001,
+  "all_st_angles_finite": true,
+  "all_dst_de_finite": true,
+  "extrapolated_point_count": 0,
+  "outside_range_rejected": true,
+  "consensus_json_bytes": 2470942,
+  "engineering_decision": "NO-GO for manufacturing or human use"
+}

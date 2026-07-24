@@ -127,6 +127,12 @@ def export_consensus_model(
         },
         "metadata": model.metadata,
         "validation_valid": validation.valid,
+        # Also expose the selected design's convention gate at the document
+        # root so consumers can reject an unverified artifact before parsing
+        # any motion data.
+        "conventions_verified": bool(
+            selected_design and selected_design.get("conventions_verified", False)
+        ),
         "validation": {
             "valid": validation.valid,
             "row_count": validation.row_count,
