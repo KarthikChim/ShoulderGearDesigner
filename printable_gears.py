@@ -305,7 +305,7 @@ const BORE_DIAMETER_BOUNDS = {{
 const CENTER_DISTANCE_BOUNDS = {{
     (millimeter) : [100, 120, 160]
     }} as LengthBoundSpec;
-export function closedOutline(sketch is Sketch, prefix is string, points is array,
+function closedOutline(sketch is Sketch, prefix is string, points is array,
         angle is ValueWithUnits, offset is Vector)
 {{
     const c = cos(angle);
@@ -325,7 +325,7 @@ export function closedOutline(sketch is Sketch, prefix is string, points is arra
     }}
 }}
 
-export function straightBody(context is Context, bodyId is Id, prefix is string,
+function straightBody(context is Context, bodyId is Id, prefix is string,
         points is array, thickness is ValueWithUnits,
         offset is Vector) returns Query
 {{
