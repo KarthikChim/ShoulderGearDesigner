@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.interpolate import PchipInterpolator
+from scipy.interpolate import CubicSpline, PchipInterpolator, UnivariateSpline
 from shapely.geometry import LineString, Polygon
 
 from biomechanics.literature_model import LiteratureShoulderModel
@@ -31,6 +31,8 @@ class SectorDesignConfig:
     psi_start_rad: float = 0.0
     center_distance: float = 120.0
     minimum_ratio: float = 0.08
+    smoothing_strength: float = 0.35
+    central_weight_multiplier: float = 3.0
     minimum_pitch_radius: float = 6.0
     near_zero_dst_de: float = 0.02
     sample_count: int = 4001
@@ -197,7 +199,7 @@ class LiteratureSectorTransmission:
         self._raw_endpoint_excursion = float(
             model.st_angle_at(self.valid_range_deg[1]) - self._st_start
         )
-        self._regularized_spline: PchipInterpolator | None = None
+        self._regularized_spline: CubicSpline | None = None
         self.regularization_difference_deg = np.array([], dtype=np.float64)
         if self.regularized:
             self._build_regularized_candidate()
@@ -207,37 +209,75 @@ class LiteratureSectorTransmission:
             *self.valid_range_deg, self.config.sample_count, dtype=np.float64
         )
         raw_st = np.asarray(self.model.st_angle_at(elevation), dtype=np.float64)
-        raw_slope = np.asarray(
-            self.model.dst_delevation_at(elevation), dtype=np.float64
+        # A weighted cubic smoothing spline is the unconstrained least-squares
+        # target.  Central elevations receive greater weight than the entry
+        # and exit regions.  The affine endpoint correction preserves the
+        # measured excursion exactly and retains C2 continuity.
+        span = self.valid_range_deg[1] - self.valid_range_deg[0]
+        center = 0.5 * sum(self.valid_range_deg)
+        normalized = 2.0 * (elevation - center) / span
+        weights = 1.0 + (
+            self.config.central_weight_multiplier - 1.0
+        ) * np.exp(-3.0 * normalized**2)
+        smoothing_budget = (
+            self.config.smoothing_strength * len(elevation)
         )
-        # m = (dST/dE * output_scale)/(dphi/dE).  Project the biological
-        # slope onto the configured mechanical lower bound, then rescale only
-        # the excess above that bound so its integral exactly preserves the
-        # measured endpoint excursion.
+        smooth = UnivariateSpline(
+            elevation,
+            raw_st,
+            w=weights,
+            s=smoothing_budget,
+            k=3,
+            ext=2,
+        )
+        smooth_values = np.asarray(smooth(elevation), dtype=np.float64)
+        lower_error = self._st_start - smooth_values[0]
+        upper_error = (
+            self._st_start
+            + self._raw_endpoint_excursion
+            - smooth_values[-1]
+        )
+        endpoint_correction = lower_error + (
+            elevation - elevation[0]
+        ) / span * (upper_error - lower_error)
+        corrected = smooth_values + endpoint_correction
+
+        # m = (dST/dE * output_scale)/(dphi/dE).  Blend the C2 optimum with
+        # the endpoint-preserving secant only as much as required to satisfy
+        # the positive-ratio constraint.  This is a convex shape constraint;
+        # the raw target remains untouched in the literature adapter.
         minimum_slope = (
             self.config.minimum_ratio
             * self._dphi_de
             / self.config.output_scale_rad_per_deg
         )
-        projected = np.maximum(raw_slope, minimum_slope)
-        span = self.valid_range_deg[1] - self.valid_range_deg[0]
-        target_integral = self._raw_endpoint_excursion
-        excess_integral = float(np.trapezoid(projected - minimum_slope, elevation))
-        available_excess = target_integral - minimum_slope * span
-        if available_excess <= 0 or excess_integral <= 0:
+        secant_slope = self._raw_endpoint_excursion / span
+        if minimum_slope >= secant_slope:
             raise ValueError(
                 "Configured minimum ratio cannot preserve the literature endpoint."
             )
-        slope = minimum_slope + (projected - minimum_slope) * (
-            available_excess / excess_integral
+        preliminary = CubicSpline(
+            elevation, corrected, bc_type="natural", extrapolate=False
         )
-        excursion = np.concatenate(
-            ([0.0], np.cumsum((slope[1:] + slope[:-1]) * 0.5 * np.diff(elevation)))
+        dense = np.linspace(*self.valid_range_deg, self.config.sample_count * 2)
+        minimum_preliminary = float(np.min(preliminary(dense, 1)))
+        blend = 1.0
+        if minimum_preliminary < minimum_slope:
+            blend = min(
+                1.0,
+                0.995
+                * (secant_slope - minimum_slope)
+                / (secant_slope - minimum_preliminary),
+            )
+        straight = self._st_start + secant_slope * (
+            elevation - elevation[0]
         )
-        excursion *= target_integral / excursion[-1]
-        regularized_st = self._st_start + excursion
-        self._regularized_spline = PchipInterpolator(
-            elevation, regularized_st, extrapolate=False
+        regularized_st = blend * corrected + (1.0 - blend) * straight
+        self._regularized_spline = CubicSpline(
+            elevation,
+            regularized_st,
+            bc_type="natural",
+            extrapolate=False,
         )
         self.regularization_difference_deg = regularized_st - raw_st
 

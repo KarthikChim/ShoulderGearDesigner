@@ -35,6 +35,8 @@
     "psi_start_rad": 0.0,
     "center_distance": 120.0,
     "minimum_ratio": 0.08,
+    "smoothing_strength": 0.35,
+    "central_weight_multiplier": 3.0,
     "minimum_pitch_radius": 6.0,
     "near_zero_dst_de": 0.02,
     "sample_count": 4001,
@@ -82,18 +84,18 @@
     ]
   },
   "regularized_slope_audit": {
-    "minimum_dst_de": 0.1058823529410815,
-    "maximum_dst_de": 0.9301164795395509,
-    "minimum_ratio": 0.07999999999992824,
-    "maximum_ratio": 0.7027546734298828,
+    "minimum_dst_de": 0.13672653628096,
+    "maximum_dst_de": 0.730647684818572,
+    "minimum_ratio": 0.10330449407894755,
+    "maximum_ratio": 0.5520449174184766,
     "nonpositive_elevations_deg": [],
     "near_zero_regions_deg": []
   },
   "regularization": {
     "separately_identified": true,
     "endpoint_excursion_preserved": true,
-    "maximum_difference_deg": 0.971388564827361,
-    "rms_difference_deg": 0.6814169765324751
+    "maximum_difference_deg": 2.2260392059666145,
+    "rms_difference_deg": 1.3282202140961448
   },
   "raw_validation": {
     "candidate": "raw",
@@ -135,9 +137,9 @@
   },
   "regularized_validation": {
     "candidate": "regularized",
-    "maximum_st_error_deg": 0.971388564827361,
-    "rms_st_error_deg": 0.6814169765324751,
-    "maximum_derivative_error": 0.1058474406658827,
+    "maximum_st_error_deg": 2.2260392059666145,
+    "rms_st_error_deg": 1.3282202140961448,
+    "maximum_derivative_error": 0.29389271911978637,
     "endpoint_error_deg": 0.0,
     "no_extrapolation": true,
     "monotonic_input": true,
@@ -147,25 +149,26 @@
     "maximum_center_error": 2.842170943040401e-14,
     "finite_radii": true,
     "minimum_radius_valid": true,
-    "minimum_pitch_radius": 8.888888888881509,
+    "minimum_pitch_radius": 11.235827784624853,
     "input_self_intersection_free": true,
     "output_self_intersection_free": true,
-    "no_assembled_pitch_overlap": true,
-    "continuous_tangent": false,
+    "no_assembled_pitch_overlap": false,
+    "continuous_tangent": true,
     "bounded_curvature": false,
     "active_boundary_continuous": true,
-    "adjacent_tooth_overlap_free": false,
+    "adjacent_tooth_overlap_free": true,
     "mating_interference_free": false,
     "minimum_root_thickness": 1.5021768528234767,
-    "undercut_risk": false,
-    "contact_ratio_estimate": 1.3309014068289726,
+    "undercut_risk": true,
+    "contact_ratio_estimate": 1.1809014068289727,
     "backlash_estimate": 0.15,
     "minimum_tip_clearance": 0.625,
     "hard_stops_present": true,
     "no_wrapping": true,
     "decision": "GO FOR SOFTWARE SIMULATION",
     "warnings": [
-      "Regularized candidate differs from the raw research target; maximum deviation 0.971389\u00b0.",
+      "Regularized candidate differs from the raw research target; maximum deviation 2.226039\u00b0.",
+      "Heuristic rack undercut screen failed.",
       "Complete sector blanks and loaded mating-interference analysis are absent.",
       "Contact ratio is an unloaded geometric estimate only.",
       "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
@@ -174,8 +177,8 @@
   "tooth_counts": {
     "raw_input": 29,
     "raw_output": 29,
-    "regularized_input": 27,
-    "regularized_output": 27
+    "regularized_input": 10,
+    "regularized_output": 10
   },
   "comparison": [
     {
@@ -235,20 +238,21 @@
     },
     {
       "name": "literature_partial_sector_regularized",
-      "maximum_st_error_deg": 0.971388564827361,
-      "rms_st_error_deg": 0.6814169765324751,
-      "maximum_derivative_error": 0.1058474406658827,
+      "maximum_st_error_deg": 2.2260392059666145,
+      "rms_st_error_deg": 1.3282202140961448,
+      "maximum_derivative_error": 0.29389271911978637,
       "endpoint_distortion_deg": 0.0,
-      "minimum_ratio": 0.07999999999992824,
-      "maximum_ratio": 0.7027546734298828,
-      "minimum_pitch_radius": 8.888888888881509,
-      "maximum_pitch_radius": 111.1111111111185,
+      "minimum_ratio": 0.10330449407894755,
+      "maximum_ratio": 0.5520449174184766,
+      "minimum_pitch_radius": 11.235827784624853,
+      "maximum_pitch_radius": 108.76417221537514,
       "maximum_curvature_proxy": 1.0000000000004547,
       "required_center_distance": 120.0,
-      "estimated_undercut_risk": false,
-      "estimated_contact_ratio": 1.3309014068289726,
+      "estimated_undercut_risk": true,
+      "estimated_contact_ratio": 1.1809014068289727,
       "warnings": [
-        "Regularized candidate differs from the raw research target; maximum deviation 0.971389\u00b0.",
+        "Regularized candidate differs from the raw research target; maximum deviation 2.226039\u00b0.",
+        "Heuristic rack undercut screen failed.",
         "Complete sector blanks and loaded mating-interference analysis are absent.",
         "Contact ratio is an unloaded geometric estimate only.",
         "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
@@ -257,7 +261,8 @@
   ],
   "final_decision": "GO FOR SOFTWARE SIMULATION",
   "remaining_blockers": [
-    "Regularized candidate differs from the raw research target; maximum deviation 0.971389\u00b0.",
+    "Regularized candidate differs from the raw research target; maximum deviation 2.226039\u00b0.",
+    "Heuristic rack undercut screen failed.",
     "Complete sector blanks and loaded mating-interference analysis are absent.",
     "Contact ratio is an unloaded geometric estimate only.",
     "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."

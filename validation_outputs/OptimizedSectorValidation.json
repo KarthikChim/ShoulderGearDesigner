@@ -1,0 +1,101 @@
+{
+  "watermark": "RESEARCH BENCH PROTOTYPE \u2014 NOT FOR HUMAN USE",
+  "source": "McClure2001",
+  "condition": {
+    "condition_id": "healthy_unloaded_raising_scapular_plane",
+    "population": "healthy",
+    "healthy_only": true,
+    "loaded": false,
+    "direction": "Raising",
+    "motion_type": "Dynamic scapular-plane abduction",
+    "motion_plane": "40 degrees anterior to frontal",
+    "primary_variable": "ST_UpwardRotation_deg",
+    "supported_range_deg": [
+      11.0,
+      147.0
+    ],
+    "allowed_papers": [
+      "McClure2001"
+    ],
+    "gh_decomposition": {
+      "mode": "HT_minus_ST_approximation",
+      "enabled": false,
+      "warning": "HT elevation is not formally identical to GH elevation plus scapular upward rotation; enable only as an explicit engineering approximation."
+    },
+    "extrapolation": "forbidden"
+  },
+  "valid_range_deg": [
+    11.0,
+    147.0
+  ],
+  "selected_screened_candidate": {
+    "candidate_id": 79,
+    "sector_angle_deg": 240.0,
+    "center_distance_mm": 120.0,
+    "module_mm": 2.5,
+    "pressure_angle_deg": 20.0,
+    "backlash_mm": 0.3,
+    "minimum_ratio_constraint": 0.2,
+    "smoothing_strength": 0.5,
+    "minimum_ratio": 0.20004658333326458,
+    "maximum_ratio": 0.22485027909181374,
+    "minimum_pitch_radius_mm": 20.00388179374964,
+    "maximum_pitch_radius_mm": 99.99611820625037,
+    "maximum_curvature": 0.5594698604560097,
+    "maximum_curvature_derivative": 3.8936635934339403,
+    "maximum_tangent_jump": 0.02009725002482004,
+    "maximum_st_error_deg": 9.633490766343854,
+    "rms_st_error_deg": 7.353035201022116,
+    "input_tooth_count": 11,
+    "output_tooth_count": 11,
+    "minimum_undercut_margin": -6.097264340826062,
+    "minimum_contact_ratio": 2.2284102341760708,
+    "minimum_root_thickness_mm": 5.901804781151006,
+    "minimum_tip_thickness_mm": 1.8071396456562299,
+    "adjacent_tooth_overlap_free": true,
+    "coarse_mating_interference_free": false,
+    "maximum_coarse_penetration_area": 1.546615913867944,
+    "input_blank_valid": true,
+    "output_blank_valid": true,
+    "rack_envelope_verified": false,
+    "hard_geometry_pass": false,
+    "rejection_reason": "exact shared-rack envelope not verified"
+  },
+  "full_mesh_position_count": 2001,
+  "mesh_summary": {
+    "zero_unintended_intersections": false,
+    "maximum_penetration_area": 1.5467700772325454,
+    "minimum_clearance": 0.0,
+    "maximum_contact_mismatch": 5.783398860650275e-14,
+    "maximum_normal_error_deg": 0.0,
+    "no_tooth_skipping": true,
+    "no_contact_discontinuity": true
+  },
+  "validation": {
+    "continuous_tangent": false,
+    "bounded_curvature": true,
+    "bounded_curvature_derivative": false,
+    "adjacent_tooth_overlap_free": true,
+    "mating_interference_free": false,
+    "minimum_pitch_radius_valid": true,
+    "minimum_contact_ratio_valid": true,
+    "minimum_root_thickness_valid": true,
+    "sector_blanks_closed_valid": true,
+    "no_extrapolation": true,
+    "maximum_st_error_valid": false,
+    "rms_st_error_valid": false,
+    "rack_envelope_verified": false,
+    "hard_pass": false,
+    "decision": "GO FOR SOFTWARE SIMULATION",
+    "blockers": [
+      "continuous_tangent",
+      "bounded_curvature_derivative",
+      "mating_interference_free",
+      "maximum_st_error_valid",
+      "rms_st_error_valid",
+      "rack_envelope_verified"
+    ]
+  },
+  "prototype_geometry_exported": false,
+  "decision": "GO FOR SOFTWARE SIMULATION"
+}

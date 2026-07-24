@@ -149,6 +149,18 @@ The GUI pathway selector exposes **Legacy**, **Literature sector: raw**, and
 **Literature sector: regularized**. Manufacturing-ready export is blocked for
 both literature pathways.
 
+Run the stricter mechanical search and 2,001-position complete-body mesh
+diagnostic with:
+
+```bash
+python optimize_literature_sector.py
+```
+
+Prototype DXF/SVG output is gated on every mechanical acceptance criterion.
+When no candidate passes, this command writes only diagnostics, search data,
+plots, tooth metrics, and the engineering report. It does not emit geometry
+that could be mistaken for a printable prototype.
+
 ## Project structure
 
 - `main.py` — application entry point

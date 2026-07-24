@@ -13,7 +13,7 @@
 | Candidate | min dST/dE | max dST/dE | min dψ/dφ | max dψ/dφ | near-zero regions |
 |---|---:|---:|---:|---:|---|
 | Raw | 3.4912275e-05 | 0.95245811 | 2.6378163e-05 | 0.71963501 | ((11.0, 14.57),) |
-| Regularized | 0.10588235 | 0.93011648 | 0.08 | 0.70275467 | none |
+| Regularized | 0.13672654 | 0.73064768 | 0.10330449 | 0.55204492 | none |
 
 The raw literature curve is preserved unchanged. The regularized candidate enforces a positive mechanical ratio while preserving endpoint excursion.
 
@@ -22,7 +22,7 @@ The raw literature curve is preserved unchanged. The regularized candidate enfor
 | Candidate | Decision | Max ST error | RMS ST error | Min radius | Contact ratio estimate | Teeth input/output |
 |---|---|---:|---:|---:|---:|---:|
 | Raw | GO FOR SOFTWARE SIMULATION | 0° | 0° | 0.0031653 | 1.331 | 29/29 |
-| Regularized | GO FOR SOFTWARE SIMULATION | 0.97138856° | 0.68141698° | 8.8889 | 1.331 | 27/27 |
+| Regularized | GO FOR SOFTWARE SIMULATION | 2.2260392° | 1.3282202° | 11.236 | 1.181 | 10/10 |
 
 ## Four-way comparison
 
@@ -31,7 +31,7 @@ The raw literature curve is preserved unchanged. The regularized candidate enfor
 | legacy_periodic_full_revolution | 19.073° | 11.9261° | 0.577879–1.53275 | 43.94854986912697–76.05145013087304 |
 | literature_forced_full_revolution | 0.0814942° | 0.00711294° | -0.456746–2.99683 | None–None |
 | literature_partial_sector_raw | 0° | 0° | 2.63782e-05–0.719635 | 0.0031652961233264846–119.99683470387667 |
-| literature_partial_sector_regularized | 0.971389° | 0.681417° | 0.08–0.702755 | 8.888888888881509–111.1111111111185 |
+| literature_partial_sector_regularized | 2.22604° | 1.32822° | 0.103304–0.552045 | 11.235827784624853–108.76417221537514 |
 
 ## Final decision
 
