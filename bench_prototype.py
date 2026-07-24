@@ -50,7 +50,7 @@ class BenchPrototypeConfig:
     tooth_root_embed_mm: float = 1.5
     body_web_thickness_mm: float = 6.0
     root_fillet_radius_mm: float = 0.8
-    minimum_tooth_connection_width_mm: float = 2.0
+    minimum_tooth_connection_width_mm: float = 4.5
     body_root_clearance_mm: float = 0.0
     minimum_clearance_mm: float = 0.25
     contact_tolerance_mm: float = 0.05
@@ -192,6 +192,7 @@ def _build_bench_sector_blank(
     connection_width = max(
         config.minimum_tooth_connection_width_mm,
         2.0 * config.root_fillet_radius_mm,
+        1.8 * config.module_mm,
     )
     for points in tooth_polygons:
         tooth = Polygon(points).buffer(0)
@@ -424,6 +425,7 @@ def build_bench_prototype(
     connection_width = max(
         config.minimum_tooth_connection_width_mm,
         2.0 * config.root_fillet_radius_mm,
+        1.8 * config.module_mm,
     )
     values = {
         "maximum_st_error": float(np.max(np.abs(error)))
