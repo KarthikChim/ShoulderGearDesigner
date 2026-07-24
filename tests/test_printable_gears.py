@@ -144,3 +144,5 @@ def test_exported_stl_step_and_featurescript_are_nonempty(
     assert text.count("fCylinder") == 2
     assert "opCylinder" not in text
     assert text.count("BooleanOperationType.SUBTRACTION") == 2
+    assert "CENTER_DISTANCE_BOUNDS" in text
+    assert "const sectionTwist = atan" in text

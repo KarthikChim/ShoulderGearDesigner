@@ -2410,6 +2410,18 @@ const OUTPUT_OUTLINE = [
         vector(-81.0559509863, -41.0571592845) * millimeter,
         vector(-81.0795354012, -40.8376179038) * millimeter
     ];
+const GEAR_THICKNESS_BOUNDS = {
+    (millimeter) : [4, 8, 16]
+    } as LengthBoundSpec;
+const BORE_DIAMETER_BOUNDS = {
+    (millimeter) : [3, 8, 16]
+    } as LengthBoundSpec;
+const CENTER_DISTANCE_BOUNDS = {
+    (millimeter) : [100, 120, 160]
+    } as LengthBoundSpec;
+const HERRINGBONE_ANGLE_BOUNDS = {
+    (degree) : [0, 5, 15]
+    } as AngleBoundSpec;
 
 function closedOutline(sketch is Sketch, prefix is string, points is array,
         angle is ValueWithUnits, offset is Vector)
@@ -2474,23 +2486,31 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         id is Id, definition is map)
     precondition
     {
-        annotation { "Name" : "Thickness", "Default" : 8 * millimeter }
-        isLength(definition.thickness, LENGTH_BOUNDS);
-        annotation { "Name" : "Bore diameter", "Default" : 8 * millimeter }
-        isLength(definition.boreDiameter, LENGTH_BOUNDS);
-        annotation { "Name" : "Center distance", "Default" : 120 * millimeter }
-        isLength(definition.centerDistance, LENGTH_BOUNDS);
-        annotation { "Name" : "Herringbone half-angle", "Default" : 8 * degree }
-        isAngle(definition.helixAngle, ANGLE_360_BOUNDS);
+        annotation { "Name" : "Thickness" }
+        isLength(definition.thickness, GEAR_THICKNESS_BOUNDS);
+        annotation { "Name" : "Bore diameter" }
+        isLength(definition.boreDiameter, BORE_DIAMETER_BOUNDS);
+        annotation { "Name" : "Center distance" }
+        isLength(definition.centerDistance, CENTER_DISTANCE_BOUNDS);
+        annotation { "Name" : "Herringbone half-angle" }
+        isAngle(definition.helixAngle, HERRINGBONE_ANGLE_BOUNDS);
     }
     {
         const inputOffset = vector(0, 0) * millimeter;
         const outputOffset = vector(definition.centerDistance / millimeter, 0)
             * millimeter;
+        // A helix angle is not the amount by which the complete profile
+        // rotates. Convert it to the cross-section twist over half the face:
+        // Δθ = tan(β) * (faceWidth / 2) / referencePitchRadius.
+        // Forty millimeters is the conservative pitch-radius reference for
+        // this pair; this keeps the loft from folding through adjacent teeth.
+        const sectionTwist = atan(
+            tan(definition.helixAngle)
+            * definition.thickness / (2 * 40 * millimeter));
         herringboneBody(context, id + "inputGear", "input", INPUT_OUTLINE,
-            definition.thickness, definition.helixAngle, inputOffset);
+            definition.thickness, sectionTwist, inputOffset);
         herringboneBody(context, id + "outputGear", "output", OUTPUT_OUTLINE,
-            definition.thickness, -definition.helixAngle, outputOffset);
+            definition.thickness, -sectionTwist, outputOffset);
 
         // Cut bores only after the lofts exist. This guarantees genuine
         // cylindrical through-holes instead of accidentally extruding the
