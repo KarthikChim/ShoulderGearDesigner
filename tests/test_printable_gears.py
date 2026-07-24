@@ -146,5 +146,6 @@ def test_exported_stl_step_and_featurescript_are_nonempty(
     assert text.count("fCylinder") == 2
     assert "opCylinder" not in text
     assert text.count("BooleanOperationType.SUBTRACTION") == 2
+    assert text.count("BodyType.SOLID") == 3
     assert "CENTER_DISTANCE_BOUNDS" in text
     assert "Whole-profile lofting is intentionally not used" in text

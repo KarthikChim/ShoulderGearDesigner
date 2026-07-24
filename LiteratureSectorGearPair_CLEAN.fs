@@ -2455,7 +2455,9 @@ function straightBody(context is Context, bodyId is Id, prefix is string,
         "endBound" : BoundingType.BLIND,
         "endDepth" : thickness
     });
-    return qCreatedBy(bodyId, EntityType.BODY);
+    return qBodyType(
+        qCreatedBy(bodyId, EntityType.BODY),
+        BodyType.SOLID);
 }
 
 annotation { "Feature Type Name" : "Literature sector gear pair" }
@@ -2495,7 +2497,9 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
             "radius" : definition.boreDiameter / 2
         });
         opBoolean(context, id + "inputBoreCut", {
-            "tools" : qCreatedBy(id + "inputBoreTool", EntityType.BODY),
+            "tools" : qBodyType(
+                qCreatedBy(id + "inputBoreTool", EntityType.BODY),
+                BodyType.SOLID),
             "targets" : inputBody,
             "operationType" : BooleanOperationType.SUBTRACTION
         });
@@ -2508,7 +2512,9 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
             "radius" : definition.boreDiameter / 2
         });
         opBoolean(context, id + "outputBoreCut", {
-            "tools" : qCreatedBy(id + "outputBoreTool", EntityType.BODY),
+            "tools" : qBodyType(
+                qCreatedBy(id + "outputBoreTool", EntityType.BODY),
+                BodyType.SOLID),
             "targets" : outputBody,
             "operationType" : BooleanOperationType.SUBTRACTION
         });
