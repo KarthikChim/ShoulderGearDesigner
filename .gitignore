@@ -1,0 +1,29 @@
+# Python environments and bytecode
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test, coverage, and tool caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+
+# Local Matplotlib cache
+.matplotlib/
+
+# Generated user exports
+*.dxf
+*.svg
+*.csv
+
+# Preserve the authoritative literature source CSV.
+!biomechanics/data/HumanShoulderGroundTruth_v2.csv

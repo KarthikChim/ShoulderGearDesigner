@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "measurement_method": {
+    "default": 1.0,
+    "rules": [
+      {
+        "label": "bone-fixed measurement",
+        "keywords": ["bone-fixed", "bone fixed"],
+        "factor": 1.4
+      },
+      {
+        "label": "fluoroscopy with image registration",
+        "keywords": ["fluoroscopy", "shape matching"],
+        "factor": 1.35
+      },
+      {
+        "label": "skin-marker or palpation measurement",
+        "keywords": ["skin-marker", "skin marker", "palpation"],
+        "factor": 0.75
+      }
+    ]
+  },
+  "population": {
+    "healthy": 1.1,
+    "mixed": 0.8,
+    "unknown": 0.9
+  },
+  "motion_protocol": {
+    "dynamic": 1.05,
+    "quasi_static": 0.95
+  },
+  "sample_size": {
+    "reference": 20,
+    "exponent": 0.25,
+    "minimum": 0.7,
+    "maximum": 1.4,
+    "unknown": 0.8
+  },
+  "uncertainty": {
+    "default_sd_deg": 1.0,
+    "minimum_sd_deg": 0.25,
+    "confidence_z": 1.96
+  }
+}

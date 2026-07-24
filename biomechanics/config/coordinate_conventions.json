@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "target_convention": "ISB-style named positive rotations; paper-specific transforms require expert verification",
+  "conventions": {
+    "*:ST_UpwardRotation_deg": {
+      "positive_direction": "upward rotation",
+      "reference_frame": "thorax",
+      "verified": false
+    },
+    "*:ST_PosteriorTilt_deg": {
+      "positive_direction": "posterior tilt",
+      "reference_frame": "thorax",
+      "verified": false
+    },
+    "*:ST_InternalRotation_deg": {
+      "positive_direction": "internal rotation",
+      "reference_frame": "thorax",
+      "verified": false
+    }
+  },
+  "transforms": {}
+}
