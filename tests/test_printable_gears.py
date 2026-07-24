@@ -141,6 +141,7 @@ def test_exported_stl_step_and_featurescript_are_nonempty(
     assert "NOT FOR HUMAN OR POWERED USE" in text
     assert "straightBody" in text
     assert "const inputBody = straightBody" in text
+    assert "export function straightBody" in text
     assert text.count("fCylinder") == 2
     assert "opCylinder" not in text
     assert text.count("BooleanOperationType.SUBTRACTION") == 2
