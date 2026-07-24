@@ -42,8 +42,16 @@ class BenchPrototypeConfig:
     minimum_ratio: float = 0.08
     smoothing_strength: float = 0.35
     profile_relief_mm: float = 0.30
-    bore_radius_mm: float = 4.0
-    web_thickness_mm: float = 5.0
+    gear_thickness_mm: float = 8.0
+    hub_thickness_mm: float = 12.0
+    hub_diameter_mm: float = 22.0
+    bore_diameter_mm: float = 8.0
+    shaft_clearance_mm: float = 0.2
+    tooth_root_embed_mm: float = 1.5
+    body_web_thickness_mm: float = 6.0
+    root_fillet_radius_mm: float = 0.8
+    minimum_tooth_connection_width_mm: float = 2.0
+    body_root_clearance_mm: float = 0.0
     minimum_clearance_mm: float = 0.25
     contact_tolerance_mm: float = 0.05
     maximum_st_error_deg: float = 3.0
@@ -53,6 +61,14 @@ class BenchPrototypeConfig:
     minimum_root_thickness_mm: float = 1.5
     minimum_tip_thickness_mm: float = 0.8
     mesh_positions: int = 2001
+
+    @property
+    def bore_radius_mm(self) -> float:
+        return 0.5 * (self.bore_diameter_mm + self.shaft_clearance_mm)
+
+    @property
+    def web_thickness_mm(self) -> float:
+        return self.body_web_thickness_mm
 
     def sector_config(self) -> SectorDesignConfig:
         return SectorDesignConfig(
@@ -94,6 +110,7 @@ class BenchValidation:
     closed_valid_bodies: bool
     minimum_root_thickness_mm: float
     minimum_tip_thickness_mm: float
+    minimum_tooth_connection_width_mm: float
     no_extrapolation: bool
     continuous_hand_rotation: bool
     all_practical_gates_pass: bool
@@ -156,7 +173,11 @@ def _build_bench_sector_blank(
     normals = _outward_normals(pitch_points)
     root = (
         pitch_points
-        - sector_config.dedendum_factor * sector_config.module * normals
+        - (
+            sector_config.dedendum_factor * sector_config.module
+            + config.body_root_clearance_mm
+        )
+        * normals
     )
     # The body follows the root curve as a printable rim.  Its inner edge is
     # offset toward the shaft by the requested web thickness.
@@ -168,6 +189,10 @@ def _build_bench_sector_blank(
     )
     hub = Point(0.0, 0.0).buffer(hub_radius, quad_segs=48)
     solids = [rim, hub]
+    connection_width = max(
+        config.minimum_tooth_connection_width_mm,
+        2.0 * config.root_fillet_radius_mm,
+    )
     for points in tooth_polygons:
         tooth = Polygon(points).buffer(0)
         solids.append(tooth)
@@ -175,14 +200,17 @@ def _build_bench_sector_blank(
         nearest_index = int(
             np.argmin(np.linalg.norm(pitch_points - centroid, axis=1))
         )
-        nearest = inner[nearest_index]
+        nearest = inner[nearest_index] - (
+            config.tooth_root_embed_mm * normals[nearest_index]
+        )
         # Profile relief shrinks the tooth root as well as its flanks.  A
         # narrow root bridge reconnects that relieved tooth to the rim without
         # changing the working tip/flank clearance.
         solids.append(
             LineString([tuple(centroid), tuple(nearest)]).buffer(
-                max(0.3 * config.module_mm, config.profile_relief_mm),
+                connection_width / 2.0,
                 cap_style="round",
+                join_style="round",
             )
         )
 
@@ -393,6 +421,10 @@ def build_bench_prototype(
     minimum_clearance = min(
         position.minimum_noncontact_clearance_mm for position in mesh
     )
+    connection_width = max(
+        config.minimum_tooth_connection_width_mm,
+        2.0 * config.root_fillet_radius_mm,
+    )
     values = {
         "maximum_st_error": float(np.max(np.abs(error)))
         <= config.maximum_st_error_deg,
@@ -414,6 +446,8 @@ def build_bench_prototype(
         >= config.minimum_root_thickness_mm,
         "minimum_tip_thickness": tip_thickness
         >= config.minimum_tip_thickness_mm,
+        "minimum_tooth_connection": connection_width
+        >= config.minimum_tooth_connection_width_mm,
         "no_extrapolation": data.hard_stop_elevation_deg == (11.0, 147.0),
         "continuous_rotation": bool(
             np.all(np.diff(data.input_rad) > 0)
@@ -437,6 +471,7 @@ def build_bench_prototype(
         closed_valid_bodies=values["closed_bodies"],
         minimum_root_thickness_mm=float(root_thickness),
         minimum_tip_thickness_mm=float(tip_thickness),
+        minimum_tooth_connection_width_mm=float(connection_width),
         no_extrapolation=values["no_extrapolation"],
         continuous_hand_rotation=values["continuous_rotation"],
         all_practical_gates_pass=passed,

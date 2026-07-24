@@ -18,8 +18,16 @@ from export_dxf import DxfExporter
 from export_svg import SvgExporter
 from biomechanics.literature_model import LiteratureShoulderModel
 from literature_sector import LiteratureSectorTransmission, SectorDesignConfig
+from literature_printable_pair import LiteratureGearPair, load_literature_gear_pair
 from settings import Settings
 from simulation import Simulation
+
+PATHWAY_OPTIONS = (
+    "Legacy",
+    "Literature sector: raw",
+    "Literature sector: regularized",
+    "Literature printable gears",
+)
 
 
 class ShoulderGearDesignerGUI:
@@ -42,6 +50,7 @@ class ShoulderGearDesignerGUI:
         self.regularized_sector = LiteratureSectorTransmission(
             self.literature_model, sector_config, regularized=True
         )
+        self.printable_pair: LiteratureGearPair | None = None
         self._last_tick = time.perf_counter()
         self._fps = 0.0
         self._camera_limits: tuple[tuple[float, float], tuple[float, float]] | None = None
@@ -58,6 +67,9 @@ class ShoulderGearDesignerGUI:
         self.speed_var = tk.DoubleVar(value=self.settings.simulation_speed_deg_s)
         self.angle_var = tk.DoubleVar(value=0.0)
         self.advanced_debug_var = tk.BooleanVar(value=self.settings.advanced_debug)
+        self.show_pitch_var = tk.BooleanVar(value=False)
+        self.show_tooth_outline_var = tk.BooleanVar(value=True)
+        self.show_contact_var = tk.BooleanVar(value=True)
         self.pathway_var = tk.StringVar(value="Legacy")
 
         self.live_vars = {
@@ -122,11 +134,7 @@ class ShoulderGearDesignerGUI:
             controls,
             textvariable=self.pathway_var,
             state="readonly",
-            values=(
-                "Legacy",
-                "Literature sector: raw",
-                "Literature sector: regularized",
-            ),
+            values=PATHWAY_OPTIONS,
             width=25,
         )
         self.pathway_selector.grid(
@@ -189,6 +197,18 @@ class ShoulderGearDesignerGUI:
             command=self._display_changed,
         ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
         row += 1
+        for label, variable in (
+            ("Show pitch curves", self.show_pitch_var),
+            ("Show tooth outlines", self.show_tooth_outline_var),
+            ("Show contact point", self.show_contact_var),
+        ):
+            ttk.Checkbutton(
+                controls,
+                text=label,
+                variable=variable,
+                command=self._render,
+            ).grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+            row += 1
 
         ttk.Button(controls, text="Reset Camera", command=self._reset_camera).grid(
             row=row, column=0, columnspan=2, sticky="ew", pady=(12, 2)
@@ -258,6 +278,7 @@ class ShoulderGearDesignerGUI:
             self.regularized_sector = LiteratureSectorTransmission(
                 self.literature_model, sector_config, regularized=True
             )
+            self.printable_pair = None
             self._camera_limits = None
             self._render()
         except (tk.TclError, ValueError) as error:
@@ -286,6 +307,9 @@ class ShoulderGearDesignerGUI:
         self.simulation.animator.pause()
         self.simulation.set_elevation(low)
         self.simulation.animator.current_deg = low
+        self.simulation.animator.direction = 1.0
+        if self.pathway_var.get() == "Literature printable gears":
+            self._ensure_printable_pair()
         self.angle_var.set(low)
         self._camera_limits = None
         self._render()
@@ -293,6 +317,11 @@ class ShoulderGearDesignerGUI:
     def _step(self, amount: float) -> None:
         self.simulation.animator.pause()
         self.simulation.animator.step(amount)
+        if self.pathway_var.get().startswith("Literature"):
+            low, high = self.literature_model.valid_range_deg
+            self.simulation.animator.current_deg = float(
+                np.clip(self.simulation.animator.current_deg, low, high)
+            )
         self.simulation.set_elevation(self.simulation.animator.current_deg)
         self.angle_var.set(self.simulation.animator.current_deg)
         self._render()
@@ -321,15 +350,17 @@ class ShoulderGearDesignerGUI:
             self._fps = instantaneous_fps if self._fps == 0 else 0.9 * self._fps + 0.1 * instantaneous_fps
         if self.simulation.animator.playing:
             self.simulation.update(elapsed)
-            if (
-                self.pathway_var.get().startswith("Literature")
-                and self.simulation.animator.current_deg
-                >= self.literature_model.valid_range_deg[1]
-            ):
-                self.simulation.animator.current_deg = (
-                    self.literature_model.valid_range_deg[1]
+            if self.pathway_var.get().startswith("Literature"):
+                low, high = self.literature_model.valid_range_deg
+                if self.simulation.animator.current_deg >= high:
+                    self.simulation.animator.current_deg = high
+                    self.simulation.animator.direction = -1.0
+                elif self.simulation.animator.current_deg <= low:
+                    self.simulation.animator.current_deg = low
+                    self.simulation.animator.direction = 1.0
+                self.simulation.set_elevation(
+                    self.simulation.animator.current_deg
                 )
-                self.simulation.animator.pause()
             self.angle_var.set(self.simulation.animator.current_deg)
             self._render()
         else:
@@ -338,7 +369,25 @@ class ShoulderGearDesignerGUI:
 
     def _render(self) -> None:
         preserved = self._camera_limits
-        self.renderer.draw(self.simulation)
+        if self.pathway_var.get() == "Literature printable gears":
+            pair = self._ensure_printable_pair()
+            elevation = float(
+                np.clip(
+                    self.simulation.state.elevation_deg,
+                    *pair.valid_range_deg,
+                )
+            )
+            render_state = self.renderer.draw_literature_pair(
+                pair,
+                elevation,
+                show_pitch_curves=self.show_pitch_var.get(),
+                show_tooth_outlines=self.show_tooth_outline_var.get(),
+                show_contact_point=self.show_contact_var.get(),
+            )
+            if render_state.collision_area > 1e-7:
+                self.simulation.animator.pause()
+        else:
+            self.renderer.draw(self.simulation)
         if preserved is not None:
             self.axes.set_xlim(*preserved[0])
             self.axes.set_ylim(*preserved[1])
@@ -357,11 +406,14 @@ class ShoulderGearDesignerGUI:
                     *self.literature_model.valid_range_deg,
                 )
             )
-            transmission = (
-                self.regularized_sector
-                if pathway.endswith("regularized")
-                else self.raw_sector
-            )
+            if pathway == "Literature printable gears":
+                transmission = self._ensure_printable_pair().transmission
+            else:
+                transmission = (
+                    self.regularized_sector
+                    if pathway.endswith("regularized")
+                    else self.raw_sector
+                )
             target_st = float(self.literature_model.st_angle_at(elevation))
             realized_st = float(transmission.st_angle(elevation))
             derivative = float(transmission.dst_de(elevation))
@@ -385,7 +437,9 @@ class ShoulderGearDesignerGUI:
             )
             self.live_vars["Source"].set("McClure2001")
             self.live_vars["Status"].set(
-                "regularized" if transmission.regularized else "raw"
+                "connected printable pair"
+                if pathway == "Literature printable gears"
+                else ("regularized" if transmission.regularized else "raw")
             )
             max_error = (
                 np.max(np.abs(transmission.regularization_difference_deg))
@@ -444,6 +498,16 @@ class ShoulderGearDesignerGUI:
         self.live_vars["Source"].set("Legacy schedule")
         self.live_vars["Status"].set("Legacy")
         self._update_validation_panel()
+
+    def _ensure_printable_pair(self) -> LiteratureGearPair:
+        """Build the connected pair once and cache it between animation frames."""
+        if self.printable_pair is None:
+            model_path = Path(__file__).resolve().parent / "ConsensusShoulderModel.json"
+            self.printable_pair = load_literature_gear_pair(
+                str(model_path),
+                float(self.settings.center_distance),
+            )
+        return self.printable_pair
 
     def _update_validation_panel(self) -> None:
         report = self.simulation.biomechanics_validation

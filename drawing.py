@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import matplotlib.axes
 import matplotlib.patches as patches
 import numpy as np
+from shapely.geometry import Polygon
 
 from gear import Gear
 from simulation import Simulation
@@ -134,6 +135,155 @@ class Renderer:
 
         self._draw_ratio_graph(simulation)
         self._draw_contribution_graph(simulation)
+
+    def draw_literature_pair(
+        self,
+        pair,
+        elevation_deg: float,
+        *,
+        show_pitch_curves: bool = False,
+        show_tooth_outlines: bool = True,
+        show_contact_point: bool = True,
+    ):
+        """Draw the final connected literature-sector body polygons."""
+
+        state = pair.render_state_at(elevation_deg)
+        axes = self.axes
+        axes.clear()
+        self._fill_polygon(
+            state.input_polygon,
+            "#f4a24c",
+            "#7c2d12",
+            "Literature input gear",
+        )
+        self._fill_polygon(
+            state.output_polygon,
+            "#5aa9df",
+            "#1e3a8a",
+            "Literature output gear",
+        )
+        if show_tooth_outlines:
+            for polygon, color in (
+                (state.active_input_tooth, "#f6e05e"),
+                (state.active_output_tooth, "#f6e05e"),
+            ):
+                points = np.asarray(polygon.exterior.coords)
+                axes.plot(
+                    points[:, 0],
+                    points[:, 1],
+                    color=color,
+                    linewidth=2.5,
+                    zorder=8,
+                )
+        if show_pitch_curves:
+            axes.plot(
+                state.input_pitch_curve[:, 0],
+                state.input_pitch_curve[:, 1],
+                "--",
+                color="#9a3412",
+                linewidth=1.0,
+                label="Input pitch sector",
+            )
+            axes.plot(
+                state.output_pitch_curve[:, 0],
+                state.output_pitch_curve[:, 1],
+                "--",
+                color="#1d4ed8",
+                linewidth=1.0,
+                label="Output pitch sector",
+            )
+        if show_contact_point:
+            axes.plot(
+                *state.contact_point,
+                "o",
+                color="#dc2626",
+                markersize=7,
+                zorder=10,
+                label="Intended contact",
+            )
+        if state.collision_area > 1e-8 and not state.collision_polygon.is_empty:
+            self._fill_polygon(
+                state.collision_polygon,
+                "#ef4444",
+                "#991b1b",
+                "Unintended overlap",
+                alpha=0.75,
+                zorder=20,
+            )
+        for center in (state.input_center, state.output_center):
+            axes.plot(*center, "+", color="#111827", markersize=10, zorder=12)
+        all_points = np.vstack(
+            (
+                np.asarray(state.input_polygon.exterior.coords),
+                np.asarray(state.output_polygon.exterior.coords),
+            )
+        )
+        low = np.min(all_points, axis=0)
+        high = np.max(all_points, axis=0)
+        margin = max(8.0, 0.08 * np.max(high - low))
+        axes.set_xlim(low[0] - margin, high[0] + margin)
+        axes.set_ylim(low[1] - margin, high[1] + margin)
+        axes.set_aspect("equal", adjustable="box")
+        axes.grid(True, color="#dce1e5", linewidth=0.55)
+        axes.set_title(
+            "Literature Printable Gears — Research Visualization\n"
+            "NOT FOR HUMAN OR POWERED USE"
+        )
+        axes.set_xlabel("X (mm)")
+        axes.set_ylabel("Y (mm)")
+        axes.legend(loc="lower left", fontsize=8)
+        if self.ratio_axes is not None:
+            self.ratio_axes.clear()
+            self.ratio_axes.set_visible(False)
+        if self.contribution_axes is not None:
+            self.contribution_axes.clear()
+            self.contribution_axes.set_visible(False)
+        return state
+
+    def _fill_polygon(
+        self,
+        polygon: Polygon,
+        face: str,
+        edge: str,
+        label: str,
+        *,
+        alpha: float = 0.9,
+        zorder: int = 2,
+    ) -> None:
+        if polygon.is_empty:
+            return
+        if polygon.geom_type == "MultiPolygon":
+            for index, component in enumerate(polygon.geoms):
+                self._fill_polygon(
+                    component,
+                    face,
+                    edge,
+                    label if index == 0 else "_nolegend_",
+                    alpha=alpha,
+                    zorder=zorder,
+                )
+            return
+        exterior = np.asarray(polygon.exterior.coords)
+        self.axes.fill(
+            exterior[:, 0],
+            exterior[:, 1],
+            facecolor=face,
+            edgecolor=edge,
+            linewidth=1.1,
+            alpha=alpha,
+            label=label,
+            zorder=zorder,
+        )
+        for interior in polygon.interiors:
+            points = np.asarray(interior.coords)
+            self.axes.fill(
+                points[:, 0],
+                points[:, 1],
+                facecolor="white",
+                edgecolor=edge,
+                linewidth=0.8,
+                zorder=zorder + 1,
+            )
 
     @staticmethod
     def _world(points: np.ndarray, gear: Gear) -> np.ndarray:
