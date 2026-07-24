@@ -53,21 +53,28 @@ class SmoothTransmission:
     across the revolution seam.
     """
 
-    def __init__(self, shoulder_model: ShoulderModel) -> None:
+    def __init__(self, shoulder_model) -> None:
         self.shoulder_model = shoulder_model
-        elevations = [0.0, *(region.end_deg for region in shoulder_model.regions)]
-        st_values = [shoulder_model.contributions_at(value)[1] for value in elevations]
-        self.final_st_deg = st_values[-1]
+        elevations = np.asarray(shoulder_model.control_elevations_deg, dtype=float)
+        self.elevation_start_deg = float(elevations[0])
+        self.elevation_end_deg = float(elevations[-1])
+        self.elevation_span_deg = (
+            self.elevation_end_deg - self.elevation_start_deg
+        )
+        st_values = np.asarray(shoulder_model.st_angle_at(elevations), dtype=float)
+        self.st_start_deg = float(st_values[0])
+        self.final_st_deg = float(st_values[-1] - st_values[0])
         if self.final_st_deg <= 0:
             raise ValueError("Final scapular rotation must be positive.")
 
-        input_rad = np.radians(
-            np.asarray(elevations, dtype=float)
-            / shoulder_model.max_elevation_deg
-            * 360.0
+        input_rad = (
+            (elevations - self.elevation_start_deg)
+            / self.elevation_span_deg
+            * 2.0
+            * np.pi
         )
         output_rad = np.radians(
-            np.asarray(st_values, dtype=float) / self.final_st_deg * 360.0
+            (st_values - self.st_start_deg) / self.final_st_deg * 360.0
         )
         residual = output_rad - input_rad
         if abs(residual[0] - residual[-1]) > 1e-12:
@@ -111,12 +118,18 @@ class SmoothTransmission:
         )
         output = float(self.output_angle(phase))
         gear_ratio = float(self.ratio(phase))
-        elevation = phase / (2.0 * np.pi) * self.shoulder_model.max_elevation_deg
-        st = output / (2.0 * np.pi) * self.final_st_deg
-        gh = elevation - st
+        elevation = (
+            self.elevation_start_deg
+            + phase / (2.0 * np.pi) * self.elevation_span_deg
+        )
+        st = self.st_start_deg + output / (2.0 * np.pi) * self.final_st_deg
+        try:
+            gh = float(self.shoulder_model.gh_angle_at(elevation))
+        except RuntimeError:
+            gh = elevation - (st - self.st_start_deg)
 
         # dST/dE follows from normalized output and input revolutions.
-        st_fraction = gear_ratio * self.final_st_deg / self.shoulder_model.max_elevation_deg
+        st_fraction = gear_ratio * self.final_st_deg / self.elevation_span_deg
         biomechanical_ratio = (1.0 - st_fraction) / st_fraction
         return TransmissionSample(
             input_rad=phase,

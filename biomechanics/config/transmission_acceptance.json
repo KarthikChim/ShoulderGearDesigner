@@ -1,0 +1,10 @@
+{
+  "maximum_st_error_deg": 1.0,
+  "rms_st_error_deg": 0.5,
+  "minimum_positive_derivative": 1e-6,
+  "center_distance_tolerance": 1e-9,
+  "minimum_pitch_radius_units": 2.0,
+  "require_verified_coordinates": true,
+  "require_leave_one_study_out": true,
+  "allow_gh_decomposition_approximation": false
+}

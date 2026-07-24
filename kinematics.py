@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
 from settings import RatioRegion
 from utils import clamp
 
@@ -39,6 +41,11 @@ class ShoulderModel:
         self._regions = self._validate_regions(regions, max_elevation_deg)
         self.max_elevation_deg = max_elevation_deg
         self.input_revolutions_per_cycle = input_revolutions_per_cycle
+        self.valid_range_deg = (0.0, max_elevation_deg)
+        self.control_elevations_deg = np.asarray(
+            [0.0, *(region.end_deg for region in self._regions)], dtype=float
+        )
+        self.pathway_name = "legacy_piecewise"
 
     @property
     def regions(self) -> tuple[RatioRegion, ...]:
@@ -88,6 +95,31 @@ class ShoulderModel:
                 break
         return gh, st
 
+    def st_angle_at(self, elevation_deg):
+        values = np.asarray(elevation_deg)
+        result = np.array(
+            [self.contributions_at(float(value))[1] for value in values.flat]
+        ).reshape(values.shape)
+        return float(result) if np.ndim(elevation_deg) == 0 else result
+
+    def gh_angle_at(self, elevation_deg):
+        values = np.asarray(elevation_deg)
+        result = np.array(
+            [self.contributions_at(float(value))[0] for value in values.flat]
+        ).reshape(values.shape)
+        return float(result) if np.ndim(elevation_deg) == 0 else result
+
+    def dst_delevation_at(self, elevation_deg):
+        values = np.asarray(elevation_deg, dtype=float)
+        result = np.empty_like(values)
+        for index, value in np.ndenumerate(values):
+            result[index] = 1.0 / (self.ratio_at(float(value)) + 1.0)
+        return float(result) if np.ndim(elevation_deg) == 0 else result
+
+    def dgh_delevation_at(self, elevation_deg):
+        result = 1.0 - np.asarray(self.dst_delevation_at(elevation_deg))
+        return float(result) if np.ndim(elevation_deg) == 0 else result
+
     def evaluate(self, elevation_deg: float) -> ShoulderState:
         """Evaluate the complete shoulder and schematic gear state."""
 
@@ -114,4 +146,3 @@ class ShoulderModel:
             input_rotation_deg=input_rotation,
             output_rotation_deg=output_rotation,
         )
-

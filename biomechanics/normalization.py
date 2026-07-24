@@ -14,6 +14,14 @@ from .models import (
 )
 
 
+def sem_to_sd(sem: float, sample_size: int) -> float:
+    """Convert standard error of the mean to standard deviation."""
+
+    if sample_size <= 0:
+        raise ValueError("sample_size must be positive for SEM-to-SD conversion")
+    return float(sem * sample_size**0.5)
+
+
 class CoordinateNormalizer:
     """Create transformed copies; raw literature rows are never mutated."""
 
@@ -63,6 +71,23 @@ class CoordinateNormalizer:
                         "reference_frame", "as published"
                     ),
                     verified=bool(convention_item.get("verified", False)),
+                    euler_sequence=convention_item.get("euler_sequence", "unresolved"),
+                    proximal_coordinate_system=convention_item.get(
+                        "proximal_coordinate_system", "unresolved"
+                    ),
+                    distal_coordinate_system=convention_item.get(
+                        "distal_coordinate_system", "unresolved"
+                    ),
+                    reference_pose=convention_item.get("reference_pose", "unresolved"),
+                    supporting_source=convention_item.get(
+                        "supporting_source", "unresolved"
+                    ),
+                    unresolved_ambiguity=convention_item.get(
+                        "unresolved_ambiguity", ""
+                    ),
+                    compatibility_group=convention_item.get(
+                        "compatibility_group", "unresolved"
+                    ),
                 )
                 uncertainty_match = re.search(
                     r"uncertainty\s*(?:\+/-|±)\s*([0-9]*\.?[0-9]+)\s*deg",
@@ -74,6 +99,15 @@ class CoordinateNormalizer:
                     if uncertainty_match
                     else None
                 )
+                if row.sd is not None:
+                    biological_sd = row.sd
+                    uncertainty_source = "SD"
+                elif row.sem is not None and row.sample_size:
+                    biological_sd = sem_to_sd(row.sem, row.sample_size)
+                    uncertainty_source = "SEM converted to SD using sqrt(sample_size)"
+                else:
+                    biological_sd = None
+                    uncertainty_source = "missing"
                 observations.append(
                     NormalizedObservation(
                         row_number=row.row_number,
@@ -88,6 +122,8 @@ class CoordinateNormalizer:
                         normalized_value=transformation.apply(value),
                         sd=row.sd,
                         sem=row.sem,
+                        biological_sd_deg=biological_sd,
+                        biological_uncertainty_source=uncertainty_source,
                         reported_uncertainty_deg=note_uncertainty,
                         extraction_method=row.extraction_method,
                         notes=row.notes,

@@ -49,27 +49,36 @@ def build_digitized_curves(
         if len(elevations) < 2:
             continue
         values = []
-        uncertainties = []
+        biological_sd = []
+        digitization_uncertainty = []
+        verified = []
+        convention_ids = []
+        compatibility_groups = []
         source_rows: list[int] = []
         for elevation in elevations:
             samples = by_elevation[float(elevation)]
             values.append(np.mean([sample.normalized_value for sample in samples]))
-            available = [
-                (
-                    sample.sd
-                    if sample.sd is not None
-                    else sample.sem
-                    if sample.sem is not None
-                    else sample.reported_uncertainty_deg
-                )
+            biological = [
+                sample.biological_sd_deg
                 for sample in samples
-                if (
-                    sample.sd is not None
-                    or sample.sem is not None
-                    or sample.reported_uncertainty_deg is not None
-                )
+                if sample.biological_sd_deg is not None
             ]
-            uncertainties.append(np.mean(available) if available else np.nan)
+            digitization = [
+                sample.reported_uncertainty_deg
+                for sample in samples
+                if sample.reported_uncertainty_deg is not None
+            ]
+            biological_sd.append(np.mean(biological) if biological else np.nan)
+            digitization_uncertainty.append(
+                np.mean(digitization) if digitization else np.nan
+            )
+            verified.extend(sample.original_convention.verified for sample in samples)
+            convention_ids.extend(
+                sample.original_convention.convention_id for sample in samples
+            )
+            compatibility_groups.extend(
+                sample.original_convention.compatibility_group for sample in samples
+            )
             source_rows.extend(sample.row_number for sample in samples)
         study_weight = weighting.weight(paper_map[paper_id], motion_key.motion_type).total
         study_weight /= paper_curve_counts[(motion_key, variable, paper_id)]
@@ -80,10 +89,16 @@ def build_digitized_curves(
                 variable=variable,
                 elevation_deg=elevations,
                 value_deg=np.asarray(values, dtype=np.float64),
-                uncertainty_deg=np.asarray(uncertainties, dtype=np.float64),
+                biological_sd_deg=np.asarray(biological_sd, dtype=np.float64),
+                digitization_uncertainty_deg=np.asarray(
+                    digitization_uncertainty, dtype=np.float64
+                ),
                 source_rows=tuple(source_rows),
                 study_weight=study_weight,
                 sample_size=paper_map[paper_id].sample_size,
+                conventions_verified=all(verified),
+                convention_ids=tuple(sorted(set(convention_ids))),
+                compatibility_groups=tuple(sorted(set(compatibility_groups))),
             )
         )
     return tuple(curves)
@@ -93,21 +108,41 @@ def build_consensus_datasets(
     curves: tuple[DigitizedCurve, ...],
     weighting_configuration: dict,
     grid_step_deg: float = 1.0,
+    uncertainty_scenario: str | None = None,
+    equal_study_weighting: bool = False,
 ) -> tuple[ConsensusDataset, ...]:
     groups: dict[tuple, list[DigitizedCurve]] = defaultdict(list)
     for curve in curves:
         groups[(curve.motion_key, curve.variable)].append(curve)
-    default_sd = float(weighting_configuration["uncertainty"]["default_sd_deg"])
-    minimum_sd = float(weighting_configuration["uncertainty"]["minimum_sd_deg"])
+    uncertainty_config = weighting_configuration["uncertainty"]
+    scenario = uncertainty_scenario or uncertainty_config["default_scenario"]
+    missing_assumption = uncertainty_config["missing_sd_scenarios_deg"][scenario]
     z_value = float(weighting_configuration["uncertainty"]["confidence_z"])
     results: list[ConsensusDataset] = []
 
     for (motion_key, variable), source_curves in groups.items():
+        contributing_papers = {curve.paper_id for curve in source_curves}
+        all_verified = all(curve.conventions_verified for curve in source_curves)
+        compatibility_groups = {
+            group
+            for curve in source_curves
+            for group in curve.compatibility_groups
+        }
+        compatible = (
+            all_verified
+            and "unresolved" not in compatibility_groups
+            and len(compatibility_groups) == 1
+        )
+        if len(contributing_papers) > 1 and not compatible:
+            # Cross-paper averaging is prohibited until every convention is
+            # explicitly audited and verified compatible.
+            continue
         minimum = np.floor(min(curve.elevation_deg[0] for curve in source_curves))
         maximum = np.ceil(max(curve.elevation_deg[-1] for curve in source_curves))
         grid = np.arange(minimum, maximum + grid_step_deg * 0.5, grid_step_deg)
         values = np.full((len(source_curves), len(grid)), np.nan)
-        measurement_variance = np.full_like(values, np.nan)
+        biological_variance_samples = np.full_like(values, np.nan)
+        digitization_variance_samples = np.full_like(values, np.nan)
         weights = np.zeros_like(values)
         for row, curve in enumerate(source_curves):
             inside = (grid >= curve.elevation_deg[0]) & (grid <= curve.elevation_deg[-1])
@@ -115,48 +150,37 @@ def build_consensus_datasets(
                 curve.elevation_deg, curve.value_deg, extrapolate=False
             )
             values[row, inside] = interpolation(grid[inside])
-            known_uncertainty = np.isfinite(curve.uncertainty_deg)
-            if np.count_nonzero(known_uncertainty) >= 2:
-                uncertainty_interpolation = PchipInterpolator(
-                    curve.elevation_deg[known_uncertainty],
-                    curve.uncertainty_deg[known_uncertainty],
-                    extrapolate=False,
-                )
-                interpolated_uncertainty = uncertainty_interpolation(grid[inside])
-                interpolated_uncertainty = np.where(
-                    np.isfinite(interpolated_uncertainty),
-                    interpolated_uncertainty,
-                    default_sd,
-                )
-            elif np.count_nonzero(known_uncertainty) == 1:
-                interpolated_uncertainty = np.full(
-                    np.count_nonzero(inside),
-                    curve.uncertainty_deg[known_uncertainty][0],
-                )
-            else:
-                interpolated_uncertainty = np.full(
-                    np.count_nonzero(inside), default_sd
-                )
-            measurement_variance[row, inside] = np.maximum(
-                interpolated_uncertainty, minimum_sd
+            biological_variance_samples[row, inside] = _interpolate_uncertainty(
+                curve.elevation_deg,
+                curve.biological_sd_deg,
+                grid[inside],
+                missing_assumption,
             ) ** 2
-            weights[row, inside] = curve.study_weight
+            digitization_variance_samples[row, inside] = _interpolate_uncertainty(
+                curve.elevation_deg,
+                curve.digitization_uncertainty_deg,
+                grid[inside],
+                0.0,
+            ) ** 2
+            weights[row, inside] = 1.0 if equal_study_weighting else curve.study_weight
         weight_sum = np.sum(weights, axis=0)
         valid = weight_sum > 0.0
         mean = np.full(len(grid), np.nan)
         mean[valid] = np.nansum(values[:, valid] * weights[:, valid], axis=0) / weight_sum[valid]
         deviations = values - mean
-        variance = np.full(len(grid), np.nan)
-        variance[valid] = (
-            np.nansum(
-                weights[:, valid]
-                * (
-                    deviations[:, valid] ** 2
-                    + measurement_variance[:, valid]
-                ),
-                axis=0,
-            )
+        between_variance = np.full(len(grid), np.nan)
+        between_variance[valid] = (
+            np.nansum(weights[:, valid] * deviations[:, valid] ** 2, axis=0)
             / weight_sum[valid]
+        )
+        biological_variance = _weighted_available_variance(
+            biological_variance_samples, weights
+        )
+        digitization_variance = _weighted_available_variance(
+            digitization_variance_samples, weights
+        )
+        variance = between_variance + np.nan_to_num(biological_variance) + np.nan_to_num(
+            digitization_variance
         )
         weight_square_sum = np.sum(weights**2, axis=0)
         effective_n = np.zeros(len(grid))
@@ -202,6 +226,8 @@ def build_consensus_datasets(
                 mean_deg=mean,
                 uncertainty=UncertaintyModel(
                     variance=variance,
+                    biological_variance=biological_variance,
+                    digitization_variance=digitization_variance,
                     standard_deviation=standard_deviation,
                     confidence_lower=lower,
                     confidence_upper=upper,
@@ -211,6 +237,42 @@ def build_consensus_datasets(
                 available_sample_count=sample_count,
                 study_contribution=contribution,
                 source_curves=tuple(source_curves),
+                conventions_verified=compatible if len(contributing_papers) > 1 else all_verified,
+                uncertainty_scenario=scenario,
             )
         )
     return tuple(results)
+
+
+def _interpolate_uncertainty(
+    elevation: np.ndarray,
+    uncertainty: np.ndarray,
+    target: np.ndarray,
+    missing_assumption: float | None,
+) -> np.ndarray:
+    known = np.isfinite(uncertainty)
+    if np.count_nonzero(known) >= 2:
+        result = PchipInterpolator(
+            elevation[known], uncertainty[known], extrapolate=False
+        )(target)
+    elif np.count_nonzero(known) == 1:
+        result = np.full(len(target), uncertainty[known][0])
+    else:
+        fill = np.nan if missing_assumption is None else missing_assumption
+        result = np.full(len(target), fill)
+    if missing_assumption is not None:
+        result = np.where(np.isfinite(result), result, missing_assumption)
+    return result
+
+
+def _weighted_available_variance(
+    samples: np.ndarray, weights: np.ndarray
+) -> np.ndarray:
+    available_weights = np.where(np.isfinite(samples), weights, 0.0)
+    denominator = np.sum(available_weights, axis=0)
+    return np.divide(
+        np.nansum(available_weights * samples, axis=0),
+        denominator,
+        out=np.full(samples.shape[1], np.nan),
+        where=denominator > 0,
+    )

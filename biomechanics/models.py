@@ -71,6 +71,7 @@ class RawLiteratureRow:
     values: tuple[tuple[str, float], ...]
     sd: float | None
     sem: float | None
+    sample_size: int | None
     extraction_method: str
     notes: str
 
@@ -92,6 +93,13 @@ class CoordinateConvention:
     positive_direction: str
     reference_frame: str
     verified: bool
+    euler_sequence: str = "unresolved"
+    proximal_coordinate_system: str = "unresolved"
+    distal_coordinate_system: str = "unresolved"
+    reference_pose: str = "unresolved"
+    supporting_source: str = "unresolved"
+    unresolved_ambiguity: str = ""
+    compatibility_group: str = "unresolved"
 
 
 @dataclass(frozen=True)
@@ -119,6 +127,8 @@ class NormalizedObservation:
     normalized_value: float
     sd: float | None
     sem: float | None
+    biological_sd_deg: float | None
+    biological_uncertainty_source: str
     reported_uncertainty_deg: float | None
     extraction_method: str
     notes: str
@@ -131,15 +141,21 @@ class DigitizedCurve:
     variable: str
     elevation_deg: FloatArray
     value_deg: FloatArray
-    uncertainty_deg: FloatArray
+    biological_sd_deg: FloatArray
+    digitization_uncertainty_deg: FloatArray
     source_rows: tuple[int, ...]
     study_weight: float
     sample_size: int | None
+    conventions_verified: bool
+    convention_ids: tuple[str, ...]
+    compatibility_groups: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class UncertaintyModel:
     variance: FloatArray
+    biological_variance: FloatArray
+    digitization_variance: FloatArray
     standard_deviation: FloatArray
     confidence_lower: FloatArray
     confidence_upper: FloatArray
@@ -157,6 +173,8 @@ class ConsensusDataset:
     available_sample_count: NDArray[np.int64]
     study_contribution: dict[str, FloatArray]
     source_curves: tuple[DigitizedCurve, ...]
+    conventions_verified: bool
+    uncertainty_scenario: str
 
 
 @dataclass(frozen=True)

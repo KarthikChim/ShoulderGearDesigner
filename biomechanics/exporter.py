@@ -23,13 +23,18 @@ def _motion(key) -> dict:
 
 
 def _array(values) -> list:
-    return np.asarray(values).tolist()
+    array = np.asarray(values)
+    if np.issubdtype(array.dtype, np.floating):
+        array = np.where(np.isfinite(array), array, None)
+    return array.tolist()
 
 
 def export_consensus_model(
     model: ConsensusModel,
     validation: ValidationReport,
     observations: tuple[NormalizedObservation, ...],
+    selected_design: dict,
+    sensitivity_analyses: dict,
     destination: str | Path,
 ) -> Path:
     path = Path(destination)
@@ -52,6 +57,12 @@ def export_consensus_model(
                 "elevation_deg": _array(dataset.elevation_deg),
                 "mean_deg": _array(dataset.mean_deg),
                 "variance_deg2": _array(dataset.uncertainty.variance),
+                "biological_variance_deg2": _array(
+                    dataset.uncertainty.biological_variance
+                ),
+                "digitization_variance_deg2": _array(
+                    dataset.uncertainty.digitization_variance
+                ),
                 "standard_deviation_deg": _array(
                     dataset.uncertainty.standard_deviation
                 ),
@@ -76,9 +87,14 @@ def export_consensus_model(
                         "source_rows": list(curve.source_rows),
                         "study_weight": curve.study_weight,
                         "sample_size": curve.sample_size,
+                        "conventions_verified": curve.conventions_verified,
+                        "convention_ids": list(curve.convention_ids),
+                        "compatibility_groups": list(curve.compatibility_groups),
                     }
                     for curve in dataset.source_curves
                 ],
+                "conventions_verified": dataset.conventions_verified,
+                "uncertainty_scenario": dataset.uncertainty_scenario,
             }
         )
 
@@ -106,10 +122,11 @@ def export_consensus_model(
         "schema_version": 1,
         "generated_utc": model.generated_utc,
         "source": {
-            "csv_path": str(model.source_csv),
+            "csv_path": model.source_csv.name,
             "sha256": model.source_sha256,
         },
         "metadata": model.metadata,
+        "validation_valid": validation.valid,
         "validation": {
             "valid": validation.valid,
             "row_count": validation.row_count,
@@ -123,6 +140,8 @@ def export_consensus_model(
         "transformations": list(transformations.values()),
         "consensus_datasets": datasets,
         "splines": splines,
+        "selected_design": selected_design,
+        "sensitivity_analyses": sensitivity_analyses,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(

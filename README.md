@@ -7,6 +7,12 @@ The authoritative literature pipeline is isolated in
 modify the current transmission or gear synthesis. See
 `biomechanics/README.md` for scientific safeguards and configuration.
 
+`model_pathways.py` preserves the independently testable legacy pathway and
+adds the verified, range-limited literature pathway. Run
+`validate_literature.py` to rebuild the JSON, coordinate audit, comparison
+plot, and engineering report. Current result: **NO-GO for manufacturing or
+human use**; the partial-sector mapping is research-only.
+
 ## Phase 5 biomechanics validation
 
 The normal display now distinguishes the mechanical derivative `dψ/dφ` from

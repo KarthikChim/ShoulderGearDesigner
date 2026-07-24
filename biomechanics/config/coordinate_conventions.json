@@ -2,6 +2,62 @@
   "schema_version": 1,
   "target_convention": "ISB-style named positive rotations; paper-specific transforms require expert verification",
   "conventions": {
+    "McClure2001:ST_UpwardRotation_deg": {
+      "id": "mcclure2001:scapula-thorax:z-y-x:upward",
+      "description": "Scapula relative to thorax; Euler sequence external/internal rotation, upward/downward rotation, posterior/anterior tilt.",
+      "positive_direction": "upward rotation",
+      "reference_frame": "thorax embedded axes",
+      "verified": true,
+      "euler_sequence": "Zs-Ys-Xs",
+      "proximal_coordinate_system": "Thorax: ZT T7-to-T1; XT normal to T1-T7-SN plane; YT=ZT×XT",
+      "distal_coordinate_system": "Scapula: XS root of spine to AC; YS normal to AC-SP-IA plane; ZS=XS×YS",
+      "reference_pose": "Absolute anatomical orientation during standing arm elevation; starting arm at side",
+      "supporting_source": "McClure et al. 2001, pp. 270-272, Figure 2 and Figure 3B",
+      "unresolved_ambiguity": ""
+      ,"compatibility_group": "scapula_relative_thorax_ZYX_named_positive"
+    },
+    "McClure2001:ST_PosteriorTilt_deg": {
+      "id": "mcclure2001:scapula-thorax:z-y-x:posterior-tilt",
+      "description": "Scapula relative to thorax; third Euler rotation about XS.",
+      "positive_direction": "posterior tilt",
+      "reference_frame": "thorax embedded axes",
+      "verified": true,
+      "euler_sequence": "Zs-Ys-Xs",
+      "proximal_coordinate_system": "Thorax embedded anatomical axes",
+      "distal_coordinate_system": "Scapula embedded anatomical axes",
+      "reference_pose": "Standing; arm starts at side",
+      "supporting_source": "McClure et al. 2001, pp. 270-272, Figure 3A",
+      "unresolved_ambiguity": ""
+      ,"compatibility_group": "scapula_relative_thorax_ZYX_named_positive"
+    },
+    "McClure2001:ST_InternalRotation_deg": {
+      "id": "mcclure2001:scapula-thorax:z-y-x:internal",
+      "description": "CSV stores internal rotation; the paper plots external rotation, hence external orientation appears as negative internal rotation.",
+      "positive_direction": "internal rotation",
+      "reference_frame": "thorax embedded axes",
+      "verified": true,
+      "euler_sequence": "Zs-Ys-Xs",
+      "proximal_coordinate_system": "Thorax embedded anatomical axes",
+      "distal_coordinate_system": "Scapula embedded anatomical axes",
+      "reference_pose": "Standing; arm starts at side",
+      "supporting_source": "McClure et al. 2001, pp. 270-272, Figure 3C",
+      "unresolved_ambiguity": ""
+      ,"compatibility_group": "scapula_relative_thorax_ZYX_named_positive"
+    },
+    "McClure2001:SC_Elevation_deg": {
+      "id": "mcclure2001:derived-clavicle:elevation",
+      "description": "Clavicular elevation derived from tracked sternal notch and AC joint locations; clavicle not directly tracked.",
+      "positive_direction": "elevation",
+      "reference_frame": "thorax",
+      "verified": true,
+      "euler_sequence": "longitude/latitude representation; elevation component",
+      "proximal_coordinate_system": "Thorax/sterna notch",
+      "distal_coordinate_system": "AC joint position tracked by scapular receiver",
+      "reference_pose": "Standing; arm starts at side",
+      "supporting_source": "McClure et al. 2001, pp. 270-272, Figure 3E",
+      "unresolved_ambiguity": "Derived clavicular angle, not a directly measured SC joint rotation."
+      ,"compatibility_group": "derived_clavicle_elevation_mcclure"
+    },
     "*:ST_UpwardRotation_deg": {
       "positive_direction": "upward rotation",
       "reference_frame": "thorax",
@@ -18,5 +74,30 @@
       "verified": false
     }
   },
-  "transforms": {}
+  "transforms": {
+    "McClure2001:ST_UpwardRotation_deg": {
+      "id": "mcclure2001:st-upward:identity",
+      "scale": 1.0,
+      "offset_deg": 0.0,
+      "description": "CSV sign already matches positive upward rotation in Figure 3B."
+    },
+    "McClure2001:ST_PosteriorTilt_deg": {
+      "id": "mcclure2001:st-posterior:identity",
+      "scale": 1.0,
+      "offset_deg": 0.0,
+      "description": "CSV sign already matches positive posterior tilt in Figure 3A."
+    },
+    "McClure2001:ST_InternalRotation_deg": {
+      "id": "mcclure2001:st-internal:identity",
+      "scale": 1.0,
+      "offset_deg": 0.0,
+      "description": "CSV has already encoded the paper's external-rotation plot as negative internal rotation."
+    },
+    "McClure2001:SC_Elevation_deg": {
+      "id": "mcclure2001:sc-elevation:identity",
+      "scale": 1.0,
+      "offset_deg": 0.0,
+      "description": "CSV sign matches positive clavicular elevation."
+    }
+  }
 }

@@ -17,6 +17,13 @@ From the project directory:
 Add `--plot-index 0` to open an interactive consensus plot. Each paper can be
 toggled independently; labels display the applied study weight.
 
+To rebuild the selected pathway, coordinate audit, comparison plot, and
+GO/NO-GO report without generating gear geometry:
+
+```bash
+./.venv/bin/python validate_literature.py
+```
+
 ## Scientific safeguards
 
 - Every CSV row is retained exactly as text in `RawLiteratureRow.fields`.
@@ -35,6 +42,14 @@ toggled independently; labels display the applied study weight.
   coordinate system into one verified standard. Defaults are therefore
   identity transformations marked `verified: false`. These conventions must
   be reviewed before cross-paper values are treated as anatomically identical.
+  Cross-paper consensus is blocked unless every contributing mapping is
+  verified.
+- McClure2001 Figure 3 data used by the selected scapular-plane condition were
+  audited against the primary paper's pp. 270–272 and Figures 2–3.
+- SD and SEM remain distinct. SEM is converted with
+  `SD = SEM * sqrt(sample_size)`. Digitization uncertainty remains separate
+  from biological variance. Missing SD is excluded by default; 0.5° and 1.0°
+  assumptions exist only as named sensitivity scenarios.
 - PCHIP is used for study interpolation and consensus splines to avoid
   oscillatory cubic overshoot. First and second derivative coefficients are
   included in the exported JSON.
@@ -51,6 +66,11 @@ toggled independently; labels display the applied study weight.
 - `exporter.py` — deterministic JSON schema
 - `engine.py` — complete orchestration API
 - `cli.py` — command-line interface
+- `literature_model.py` — verified, range-limited synthesis adapter
+- `selection.py` — single-condition selection gate
+- `sensitivity.py` — weighting, missing-SD, and leave-one-out analyses
+- `audit.py` — coordinate convention audit
+- `engineering_report.py` — full-cycle/sector comparison and NO-GO report
 
 Future transmission synthesis should consume `ConsensusShoulderModel.json`;
 it should not parse the literature CSV directly.

@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from .engine import BiomechanicsEngine
+from .audit import write_coordinate_audit
 from .visualization import plot_consensus
 
 
@@ -20,6 +21,10 @@ def main() -> None:
     engine = BiomechanicsEngine(args.csv)
     model = engine.build()
     destination = engine.export(args.output)
+    audit_path = write_coordinate_audit(
+        engine.normalized_observations,
+        args.output.with_name("CoordinateConventionAudit.md"),
+    )
     report = engine.validation_report
     print(f"Rows: {report.row_count}; papers: {report.paper_count}")
     print(f"Motion groups: {len(engine.motion_datasets)}")
@@ -30,6 +35,7 @@ def main() -> None:
     for issue in report.issues:
         print(f"{issue.severity.upper()}: {issue.message}")
     print(f"Written: {destination.resolve()}")
+    print(f"Audit: {audit_path.resolve()}")
     if args.plot_index is not None:
         plot_consensus(model.datasets[args.plot_index])
 

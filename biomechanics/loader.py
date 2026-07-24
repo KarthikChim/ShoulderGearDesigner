@@ -150,6 +150,7 @@ def load_literature_csv(
                 values=values,
                 sd=_optional_float(row["SD"]),
                 sem=_optional_float(row["SEM"]),
+                sample_size=_optional_int(row["SampleSize"]),
                 extraction_method=row["ExtractionMethod"].strip(),
                 notes=row["Notes"],
             )

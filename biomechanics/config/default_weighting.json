@@ -37,8 +37,12 @@
     "unknown": 0.8
   },
   "uncertainty": {
-    "default_sd_deg": 1.0,
-    "minimum_sd_deg": 0.25,
-    "confidence_z": 1.96
+    "default_scenario": "exclude_missing",
+    "confidence_z": 1.96,
+    "missing_sd_scenarios_deg": {
+      "exclude_missing": null,
+      "assume_0_5_deg": 0.5,
+      "assume_1_0_deg": 1.0
+    }
   }
 }

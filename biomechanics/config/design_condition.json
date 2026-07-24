@@ -1,0 +1,18 @@
+{
+  "condition_id": "healthy_unloaded_raising_scapular_plane",
+  "population": "healthy",
+  "healthy_only": true,
+  "loaded": false,
+  "direction": "Raising",
+  "motion_type": "Dynamic scapular-plane abduction",
+  "motion_plane": "40 degrees anterior to frontal",
+  "primary_variable": "ST_UpwardRotation_deg",
+  "supported_range_deg": [11.0, 147.0],
+  "allowed_papers": ["McClure2001"],
+  "gh_decomposition": {
+    "mode": "HT_minus_ST_approximation",
+    "enabled": false,
+    "warning": "HT elevation is not formally identical to GH elevation plus scapular upward rotation; enable only as an explicit engineering approximation."
+  },
+  "extrapolation": "forbidden"
+}
