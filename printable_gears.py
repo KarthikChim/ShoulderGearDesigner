@@ -305,10 +305,6 @@ const BORE_DIAMETER_BOUNDS = {{
 const CENTER_DISTANCE_BOUNDS = {{
     (millimeter) : [100, 120, 160]
     }} as LengthBoundSpec;
-const HERRINGBONE_ANGLE_BOUNDS = {{
-    (degree) : [0, 5, 15]
-    }} as AngleBoundSpec;
-
 function closedOutline(sketch is Sketch, prefix is string, points is array,
         angle is ValueWithUnits, offset is Vector)
 {{
@@ -329,42 +325,23 @@ function closedOutline(sketch is Sketch, prefix is string, points is array,
     }}
 }}
 
-function profileAt(context is Context, sketchId is Id, prefix is string,
-        points is array, z is ValueWithUnits, angle is ValueWithUnits,
+function straightBody(context is Context, bodyId is Id, prefix is string,
+        points is array, thickness is ValueWithUnits,
         offset is Vector) returns Query
 {{
+    const sketchId = bodyId + "profile";
     const sketch = newSketchOnPlane(context, sketchId, {{
-        "sketchPlane" : plane(
-            vector(0, 0, z / meter) * meter,
-            vector(0, 0, 1))
+        "sketchPlane" : XY_PLANE
     }});
-    closedOutline(sketch, prefix, points, angle, offset);
+    closedOutline(sketch, prefix, points, 0 * degree, offset);
     skSolve(sketch);
-    return qSketchRegion(sketchId);
-}}
-
-function herringboneBody(context is Context, bodyId is Id, prefix is string,
-        points is array, thickness is ValueWithUnits,
-        twist is ValueWithUnits, offset is Vector)
-{{
-    // Five sections create a symmetric double helix. Rotation rises from
-    // zero at the lower face to the requested twist at the center plane,
-    // then reverses back to zero at the upper face.
-    const profiles = [
-        profileAt(context, bodyId + "s0", prefix ~ "s0", points,
-            0 * millimeter, 0 * degree, offset),
-        profileAt(context, bodyId + "s1", prefix ~ "s1", points,
-            thickness / 4, twist / 2, offset),
-        profileAt(context, bodyId + "s2", prefix ~ "s2", points,
-            thickness / 2, twist, offset),
-        profileAt(context, bodyId + "s3", prefix ~ "s3", points,
-            3 * thickness / 4, twist / 2, offset),
-        profileAt(context, bodyId + "s4", prefix ~ "s4", points,
-            thickness, 0 * degree, offset)
-    ];
-    opLoft(context, bodyId, {{
-        "profileSubqueries" : profiles
+    opExtrude(context, bodyId, {{
+        "entities" : qSketchRegion(sketchId),
+        "direction" : vector(0, 0, 1),
+        "endBound" : BoundingType.BLIND,
+        "endDepth" : thickness
     }});
+    return qCreatedBy(bodyId, EntityType.BODY);
 }}
 
 annotation {{ "Feature Type Name" : "Literature sector gear pair" }}
@@ -378,25 +355,21 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         isLength(definition.boreDiameter, BORE_DIAMETER_BOUNDS);
         annotation {{ "Name" : "Center distance" }}
         isLength(definition.centerDistance, CENTER_DISTANCE_BOUNDS);
-        annotation {{ "Name" : "Herringbone half-angle" }}
-        isAngle(definition.helixAngle, HERRINGBONE_ANGLE_BOUNDS);
     }}
     {{
         const inputOffset = vector(0, 0) * millimeter;
         const outputOffset = vector(definition.centerDistance / millimeter, 0)
             * millimeter;
-        // A helix angle is not the amount by which the complete profile
-        // rotates. Convert it to the cross-section twist over half the face:
-        // Δθ = tan(β) * (faceWidth / 2) / referencePitchRadius.
-        // Forty millimeters is the conservative pitch-radius reference for
-        // this pair; this keeps the loft from folding through adjacent teeth.
-        const sectionTwist = atan(
-            tan(definition.helixAngle)
-            * definition.thickness / (2 * 40 * millimeter));
-        herringboneBody(context, id + "inputGear", "input", INPUT_OUTLINE,
-            definition.thickness, sectionTwist, inputOffset);
-        herringboneBody(context, id + "outputGear", "output", OUTPUT_OUTLINE,
-            definition.thickness, -sectionTwist, outputOffset);
+        // Whole-profile lofting is intentionally not used here. Onshape's
+        // loft kernel cannot robustly correspond the thousands of concave
+        // vertices in a non-circular toothed outline. Straight extrusion
+        // preserves the exact validated 2-D geometry and always produces a
+        // printable solid. True herringbone construction must be performed
+        // tooth-by-tooth in a separate generator.
+        const inputBody = straightBody(context, id + "inputGear", "input",
+            INPUT_OUTLINE, definition.thickness, inputOffset);
+        const outputBody = straightBody(context, id + "outputGear", "output",
+            OUTPUT_OUTLINE, definition.thickness, outputOffset);
 
         // Cut bores only after the lofts exist. This guarantees genuine
         // cylindrical through-holes instead of accidentally extruding the
@@ -409,7 +382,7 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         }});
         opBoolean(context, id + "inputBoreCut", {{
             "tools" : qCreatedBy(id + "inputBoreTool", EntityType.BODY),
-            "targets" : qCreatedBy(id + "inputGear", EntityType.BODY),
+            "targets" : inputBody,
             "operationType" : BooleanOperationType.SUBTRACTION
         }});
         fCylinder(context, id + "outputBoreTool", {{
@@ -422,7 +395,7 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         }});
         opBoolean(context, id + "outputBoreCut", {{
             "tools" : qCreatedBy(id + "outputBoreTool", EntityType.BODY),
-            "targets" : qCreatedBy(id + "outputGear", EntityType.BODY),
+            "targets" : outputBody,
             "operationType" : BooleanOperationType.SUBTRACTION
         }});
     }});

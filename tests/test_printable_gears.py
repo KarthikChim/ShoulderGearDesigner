@@ -139,10 +139,10 @@ def test_exported_stl_step_and_featurescript_are_nonempty(
     assert "INPUT_OUTLINE" in text
     assert "OUTPUT_OUTLINE" in text
     assert "NOT FOR HUMAN OR POWERED USE" in text
-    assert "herringboneBody" in text
-    assert "opLoft" in text
+    assert "straightBody" in text
+    assert "const inputBody = straightBody" in text
     assert text.count("fCylinder") == 2
     assert "opCylinder" not in text
     assert text.count("BooleanOperationType.SUBTRACTION") == 2
     assert "CENTER_DISTANCE_BOUNDS" in text
-    assert "const sectionTwist = atan" in text
+    assert "Whole-profile lofting is intentionally not used" in text
