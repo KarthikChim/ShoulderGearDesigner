@@ -1,5 +1,21 @@
 # Shoulder Gear Designer
 
+## Standards-based rack and matching pinion
+
+`standard_involute.py` is a standalone ISO/AGMA-style basic-rack and
+analytical involute-pinion generator. It does not alter the McClure shoulder
+model, literature transmission, or non-circular pitch curves.
+
+In PyCharm, run `create_standard_rack_pinion.py`. From a terminal:
+
+```bash
+python create_standard_rack_pinion.py
+```
+
+It writes STEP (editable CAD), STL (slicing), DXF, SVG, and a JSON validation
+report to `standard_rack_outputs/`. The rack uses exact straight generating
+flanks; the matching pinion contains the analytical involute flanks.
+
 ## Literature biomechanics engine
 
 The authoritative literature pipeline is isolated in

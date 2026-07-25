@@ -1,0 +1,30 @@
+{
+  "parameters": {
+    "module": 2.0,
+    "pressure_angle_deg": 20.0,
+    "addendum_factor": 1.0,
+    "dedendum_factor": 1.25,
+    "backlash": 0.15,
+    "root_fillet_radius": 0.6,
+    "rack_teeth": 14,
+    "pinion_teeth": 24,
+    "rack_body_height": 6.0,
+    "face_width": 10.0,
+    "profile_samples": 48
+  },
+  "validation": {
+    "valid": true,
+    "undercut_free": true,
+    "watertight_rack": true,
+    "watertight_pinion": true,
+    "rolling_error_mm": 0.0,
+    "maximum_penetration_area_mm2": 0.0,
+    "minimum_backlash_mm": 0.15,
+    "transverse_contact_ratio": 1.7913560022714068,
+    "warnings": []
+  },
+  "basis": [
+    "ISO 53 basic rack",
+    "ISO 54 metric module"
+  ]
+}
