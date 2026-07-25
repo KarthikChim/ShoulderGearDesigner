@@ -144,24 +144,30 @@ class Renderer:
         show_pitch_curves: bool = False,
         show_tooth_outlines: bool = True,
         show_contact_point: bool = True,
+        show_pitch_points: bool = False,
+        show_tangents: bool = False,
+        show_tooth_centerlines: bool = False,
+        show_raw_tooth_outlines: bool = False,
+        show_final_gear: bool = True,
     ):
         """Draw the final connected literature-sector body polygons."""
 
         state = pair.render_state_at(elevation_deg)
         axes = self.axes
         axes.clear()
-        self._fill_polygon(
-            state.input_polygon,
-            "#f4a24c",
-            "#7c2d12",
-            "Literature input gear",
-        )
-        self._fill_polygon(
-            state.output_polygon,
-            "#5aa9df",
-            "#1e3a8a",
-            "Literature output gear",
-        )
+        if show_final_gear:
+            self._fill_polygon(
+                state.input_polygon,
+                "#f4a24c",
+                "#7c2d12",
+                "Literature input gear",
+            )
+            self._fill_polygon(
+                state.output_polygon,
+                "#5aa9df",
+                "#1e3a8a",
+                "Literature output gear",
+            )
         if show_tooth_outlines:
             for polygon, color in (
                 (state.active_input_tooth, "#f6e05e"),
@@ -174,6 +180,63 @@ class Renderer:
                     color=color,
                     linewidth=2.5,
                     zorder=8,
+                )
+        debug_teeth = (
+            (*state.input_tooth_outlines, *state.output_tooth_outlines)
+        )
+        addendum = pair.prototype.teeth.addendum
+        dedendum = pair.prototype.teeth.dedendum
+        pitch_fraction = dedendum / max(addendum + dedendum, 1e-12)
+        for tooth in debug_teeth:
+            points = np.asarray(tooth.exterior.coords)[:4]
+            root_midpoint = 0.5 * (points[0] + points[3])
+            tip_midpoint = 0.5 * (points[1] + points[2])
+            pitch_point = root_midpoint + pitch_fraction * (
+                tip_midpoint - root_midpoint
+            )
+            centerline = tip_midpoint - root_midpoint
+            centerline /= max(np.linalg.norm(centerline), 1e-12)
+            tangent = np.array([-centerline[1], centerline[0]])
+            if show_raw_tooth_outlines:
+                closed = np.vstack((points, points[0]))
+                axes.plot(
+                    closed[:, 0],
+                    closed[:, 1],
+                    color="#7c3aed",
+                    linewidth=0.8,
+                    alpha=0.8,
+                    zorder=11,
+                )
+            if show_pitch_points:
+                axes.plot(
+                    *pitch_point,
+                    marker=".",
+                    color="#111827",
+                    markersize=4,
+                    zorder=12,
+                )
+            if show_tooth_centerlines:
+                axes.plot(
+                    [root_midpoint[0], tip_midpoint[0]],
+                    [root_midpoint[1], tip_midpoint[1]],
+                    color="#059669",
+                    linewidth=0.7,
+                    zorder=12,
+                )
+            if show_tangents:
+                length = 0.8 * pair.prototype.config.module_mm
+                axes.plot(
+                    [
+                        pitch_point[0] - length * tangent[0],
+                        pitch_point[0] + length * tangent[0],
+                    ],
+                    [
+                        pitch_point[1] - length * tangent[1],
+                        pitch_point[1] + length * tangent[1],
+                    ],
+                    color="#db2777",
+                    linewidth=0.7,
+                    zorder=12,
                 )
         if show_pitch_curves:
             axes.plot(

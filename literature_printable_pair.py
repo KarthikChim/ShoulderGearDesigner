@@ -26,6 +26,8 @@ class GearRenderState:
     contact_point: np.ndarray
     active_input_tooth: Polygon
     active_output_tooth: Polygon
+    input_tooth_outlines: tuple[Polygon, ...]
+    output_tooth_outlines: tuple[Polygon, ...]
     collision_polygon: Polygon
     collision_area: float
     input_center: np.ndarray
@@ -193,6 +195,8 @@ class LiteratureGearPair:
             contact_point=contact,
             active_input_tooth=input_teeth[input_index],
             active_output_tooth=output_teeth[output_index],
+            input_tooth_outlines=tuple(input_teeth),
+            output_tooth_outlines=tuple(output_teeth),
             collision_polygon=collision,
             collision_area=float(collision.area),
             input_center=np.array([0.0, 0.0]),

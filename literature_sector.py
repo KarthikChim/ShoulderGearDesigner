@@ -44,6 +44,7 @@ class SectorDesignConfig:
     addendum_factor: float = 1.0
     dedendum_factor: float = 1.25
     backlash: float = 0.15
+    profile_relief: float = 0.0
     root_fillet_factor: float = 0.30
 
     def validate(self) -> None:
@@ -467,9 +468,13 @@ def generate_sector_teeth(
         positions = start + np.arange(count) * pitch
         positions = positions[positions <= length - pitch * 0.5]
         origins, tangents, normals = _sample_polyline(points, cumulative, positions)
+        # Profile relief is applied analytically as a normal displacement of
+        # each straight rack flank. Its tangential component is relief/cos(α).
+        # No polygon buffer/offset/smoothing operation is used.
+        flank_relief = config.profile_relief / max(np.cos(alpha), 1e-12)
         half_pitch = max(
             0.05 * config.module,
-            pitch / 4.0 - config.backlash / 2.0,
+            pitch / 4.0 - config.backlash / 2.0 - flank_relief,
         )
         half_tip = max(
             0.03 * config.module, half_pitch - addendum * np.tan(alpha)
@@ -494,13 +499,11 @@ def generate_sector_teeth(
                 + local[:, :1] * tangent
                 + local[:, 1:] * normal
             )
-            shape = Polygon(world)
-            if fillet > 0:
-                # This conservative round-trip rounds sharp rack-root corners.
-                shape = shape.buffer(fillet * 0.15, quad_segs=4).buffer(
-                    -fillet * 0.15, quad_segs=4
-                )
-            polygons.append(np.asarray(shape.exterior.coords, dtype=np.float64))
+            # The four vertices are the exact rack-generated root-left,
+            # tip-left, tip-right, and root-right corners. Keeping this as an
+            # explicit polygon preserves two straight pressure-angle flanks,
+            # a finite tip land, and a finite root land.
+            polygons.append(np.vstack((world, world[0])))
         _, _, normals_dense = _sample_polyline(
             points, cumulative, np.minimum(cumulative, length)
         )

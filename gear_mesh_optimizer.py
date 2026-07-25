@@ -34,6 +34,7 @@ ROOT_FILLETS = (0.4, 0.6, 0.8, 1.0)
 ROOT_EMBEDS = (1.0, 1.5, 2.0)
 HELIX_ANGLES = (10.0, 15.0, 20.0, 25.0)
 TOOTH_STYLES = ("Spur", "Helical", "Herringbone")
+OPTIMIZATION_PAUSED_FOR_RACK_VALIDATION = True
 
 
 @dataclass(frozen=True)
@@ -301,6 +302,12 @@ class GearMeshOptimizer:
             yield GearMeshParameters(*values, tooth_style="Spur")
 
     def optimize(self, top_n: int = 25) -> GearOptimizationResult:
+        if OPTIMIZATION_PAUSED_FOR_RACK_VALIDATION:
+            raise RuntimeError(
+                "Gear optimization is intentionally paused after restoring "
+                "the rack-generated tooth algorithm. Validate the restored "
+                "teeth before starting a new optimization phase."
+            )
         candidates = [self.evaluate(item) for item in self._parameter_grid()]
         candidates.sort(key=lambda item: item.score)
         preferred = candidates[0]

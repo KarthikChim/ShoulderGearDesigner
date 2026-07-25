@@ -41,7 +41,10 @@ class BenchPrototypeConfig:
     backlash_mm: float = 0.45
     minimum_ratio: float = 0.08
     smoothing_strength: float = 0.35
-    profile_relief_mm: float = 0.30
+    # 0.35 mm analytically offsets each straight flank by the clearance that
+    # the previous 0.30 mm polygon buffer happened to create, without rounding
+    # the rack profile.
+    profile_relief_mm: float = 0.35
     gear_thickness_mm: float = 8.0
     hub_thickness_mm: float = 12.0
     hub_diameter_mm: float = 22.0
@@ -77,6 +80,7 @@ class BenchPrototypeConfig:
             module=self.module_mm,
             pressure_angle_deg=self.pressure_angle_deg,
             backlash=self.backlash_mm,
+            profile_relief=self.profile_relief_mm,
             minimum_ratio=self.minimum_ratio,
             smoothing_strength=self.smoothing_strength,
             sample_count=self.mesh_positions,
@@ -132,18 +136,6 @@ class BenchPrototype:
     validation: BenchValidation
 
 
-def _relieve_teeth(
-    polygons: tuple[np.ndarray, ...], relief_mm: float
-) -> tuple[np.ndarray, ...]:
-    relieved = []
-    for points in polygons:
-        shape = Polygon(points).buffer(-relief_mm, join_style="round")
-        if shape.is_empty or shape.geom_type != "Polygon":
-            raise ValueError("Profile relief removed an entire tooth.")
-        relieved.append(np.asarray(shape.exterior.coords, dtype=np.float64))
-    return tuple(relieved)
-
-
 def _adjacent_overlap_free(polygons: tuple[np.ndarray, ...]) -> bool:
     return all(
         Polygon(first).intersection(Polygon(second)).area <= 1e-10
@@ -195,7 +187,9 @@ def _build_bench_sector_blank(
         1.8 * config.module_mm,
     )
     for points in tooth_polygons:
-        tooth = Polygon(points).buffer(0)
+        tooth = Polygon(points)
+        if not tooth.is_valid:
+            raise ValueError("Explicit rack tooth polygon is invalid.")
         solids.append(tooth)
         centroid = np.array([tooth.centroid.x, tooth.centroid.y])
         nearest_index = int(
@@ -207,11 +201,28 @@ def _build_bench_sector_blank(
         # Profile relief shrinks the tooth root as well as its flanks.  A
         # narrow root bridge reconnects that relieved tooth to the rim without
         # changing the working tip/flank clearance.
+        if nearest_index == 0:
+            tangent = pitch_points[1] - pitch_points[0]
+        elif nearest_index == len(pitch_points) - 1:
+            tangent = pitch_points[-1] - pitch_points[-2]
+        else:
+            tangent = (
+                pitch_points[nearest_index + 1]
+                - pitch_points[nearest_index - 1]
+            )
+        tangent /= max(np.linalg.norm(tangent), 1e-15)
+        half_bridge = 0.5 * connection_width * tangent
+        # Exact four-corner root bridge. A buffered line previously created
+        # round caps that could protrude into the tooth flanks and make the
+        # final silhouette resemble a lobe.
         solids.append(
-            LineString([tuple(centroid), tuple(nearest)]).buffer(
-                connection_width / 2.0,
-                cap_style="round",
-                join_style="round",
+            Polygon(
+                [
+                    tuple(centroid - half_bridge),
+                    tuple(centroid + half_bridge),
+                    tuple(nearest + half_bridge),
+                    tuple(nearest - half_bridge),
+                ]
             )
         )
 
@@ -363,12 +374,8 @@ def build_bench_prototype(
     )
     data = synthesize_sector_pitch_curves(transmission)
     original_teeth = generate_sector_teeth(data, transmission.config)
-    input_teeth = _relieve_teeth(
-        original_teeth.input_teeth, config.profile_relief_mm
-    )
-    output_teeth = _relieve_teeth(
-        original_teeth.output_teeth, config.profile_relief_mm
-    )
+    input_teeth = original_teeth.input_teeth
+    output_teeth = original_teeth.output_teeth
     teeth = SectorToothGeometry(
         candidate="bench_regularized_relieved",
         input_teeth=input_teeth,
@@ -404,17 +411,17 @@ def build_bench_prototype(
     error = data.absolute_st_deg - target
     alpha = np.radians(config.pressure_angle_deg)
     pitch_thickness = (
-        np.pi * config.module_mm / 2.0 - config.backlash_mm
+        np.pi * config.module_mm / 2.0
+        - config.backlash_mm
+        - 2.0 * config.profile_relief_mm / max(np.cos(alpha), 1e-12)
     )
     root_thickness = (
         pitch_thickness
         + 2.0 * original_teeth.dedendum * np.tan(alpha)
-        - 2.0 * config.profile_relief_mm
     )
     tip_thickness = (
         pitch_thickness
         - 2.0 * original_teeth.addendum * np.tan(alpha)
-        - 2.0 * config.profile_relief_mm
     )
     maximum_penetration = max(
         position.maximum_penetration_area_mm2 for position in mesh

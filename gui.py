@@ -70,13 +70,18 @@ class ShoulderGearDesignerGUI:
         self.show_pitch_var = tk.BooleanVar(value=False)
         self.show_tooth_outline_var = tk.BooleanVar(value=True)
         self.show_contact_var = tk.BooleanVar(value=True)
+        self.show_pitch_points_var = tk.BooleanVar(value=False)
+        self.show_tangents_var = tk.BooleanVar(value=False)
+        self.show_centerlines_var = tk.BooleanVar(value=False)
+        self.show_raw_teeth_var = tk.BooleanVar(value=False)
+        self.show_final_gear_var = tk.BooleanVar(value=True)
         self.pathway_var = tk.StringVar(value="Legacy")
-        self.module_var = tk.DoubleVar(value=2.0)
+        self.module_var = tk.DoubleVar(value=2.5)
         self.pressure_angle_var = tk.DoubleVar(value=20.0)
-        self.backlash_var = tk.DoubleVar(value=0.30)
-        self.profile_relief_var = tk.DoubleVar(value=0.15)
-        self.face_width_var = tk.DoubleVar(value=16.0)
-        self.root_fillet_var = tk.DoubleVar(value=1.0)
+        self.backlash_var = tk.DoubleVar(value=0.45)
+        self.profile_relief_var = tk.DoubleVar(value=0.35)
+        self.face_width_var = tk.DoubleVar(value=8.0)
+        self.root_fillet_var = tk.DoubleVar(value=0.8)
         self.center_offset_var = tk.DoubleVar(value=0.0)
         self.tooth_style_var = tk.StringVar(value="Spur")
 
@@ -252,6 +257,11 @@ class ShoulderGearDesignerGUI:
             ("Show pitch curves", self.show_pitch_var),
             ("Show tooth outlines", self.show_tooth_outline_var),
             ("Show contact point", self.show_contact_var),
+            ("Show pitch points", self.show_pitch_points_var),
+            ("Show local tangents", self.show_tangents_var),
+            ("Show tooth centerlines", self.show_centerlines_var),
+            ("Show raw tooth outlines", self.show_raw_teeth_var),
+            ("Show final trimmed gear", self.show_final_gear_var),
         ):
             ttk.Checkbutton(
                 controls,
@@ -445,6 +455,11 @@ class ShoulderGearDesignerGUI:
                 show_pitch_curves=self.show_pitch_var.get(),
                 show_tooth_outlines=self.show_tooth_outline_var.get(),
                 show_contact_point=self.show_contact_var.get(),
+                show_pitch_points=self.show_pitch_points_var.get(),
+                show_tangents=self.show_tangents_var.get(),
+                show_tooth_centerlines=self.show_centerlines_var.get(),
+                show_raw_tooth_outlines=self.show_raw_teeth_var.get(),
+                show_final_gear=self.show_final_gear_var.get(),
             )
             if render_state.collision_area > 1e-7:
                 self.simulation.animator.pause()
@@ -574,7 +589,7 @@ class ShoulderGearDesignerGUI:
                 float(self.profile_relief_var.get()),
                 float(self.face_width_var.get()),
                 float(self.root_fillet_var.get()),
-                2.0,
+                1.5,
                 float(self.center_offset_var.get()),
                 str(self.tooth_style_var.get()),
             )
