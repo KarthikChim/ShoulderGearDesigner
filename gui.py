@@ -71,6 +71,14 @@ class ShoulderGearDesignerGUI:
         self.show_tooth_outline_var = tk.BooleanVar(value=True)
         self.show_contact_var = tk.BooleanVar(value=True)
         self.pathway_var = tk.StringVar(value="Legacy")
+        self.module_var = tk.DoubleVar(value=2.0)
+        self.pressure_angle_var = tk.DoubleVar(value=20.0)
+        self.backlash_var = tk.DoubleVar(value=0.30)
+        self.profile_relief_var = tk.DoubleVar(value=0.15)
+        self.face_width_var = tk.DoubleVar(value=16.0)
+        self.root_fillet_var = tk.DoubleVar(value=1.0)
+        self.center_offset_var = tk.DoubleVar(value=0.0)
+        self.tooth_style_var = tk.StringVar(value="Spur")
 
         self.live_vars = {
             "Mechanical ratio": tk.StringVar(),
@@ -157,6 +165,49 @@ class ShoulderGearDesignerGUI:
         ttk.Button(controls, text="Apply Geometry", command=self._apply_inputs).grid(
             row=row, column=0, columnspan=2, sticky="ew", pady=(6, 12)
         )
+        row += 1
+        ttk.Label(
+            controls,
+            text="Physical tooth geometry",
+            font=("TkDefaultFont", 10, "bold"),
+        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 4))
+        row += 1
+        physical_controls = (
+            ("Module", self.module_var, (1.5, 1.75, 2.0, 2.25, 2.5)),
+            ("Pressure angle", self.pressure_angle_var, (20.0, 25.0, 30.0)),
+            ("Backlash", self.backlash_var, (0.10, 0.15, 0.20, 0.25, 0.30)),
+            ("Profile relief", self.profile_relief_var, (0.0, 0.05, 0.10, 0.15)),
+            ("Face width", self.face_width_var, (8.0, 10.0, 12.0, 14.0, 16.0)),
+            ("Root fillet", self.root_fillet_var, (0.4, 0.6, 0.8, 1.0)),
+            (
+                ("Center offset"),
+                self.center_offset_var,
+                (-0.50, -0.25, 0.0, 0.25, 0.50),
+            ),
+            ("Tooth style", self.tooth_style_var, ("Spur", "Helical", "Herringbone")),
+        )
+        for label, variable, values in physical_controls:
+            ttk.Label(controls, text=label).grid(
+                row=row, column=0, sticky="w", pady=2
+            )
+            selector = ttk.Combobox(
+                controls,
+                textvariable=variable,
+                state="readonly",
+                values=values,
+                width=12,
+            )
+            selector.grid(row=row, column=1, sticky="ew", pady=2)
+            selector.bind(
+                "<<ComboboxSelected>>",
+                lambda _event: self._physical_geometry_changed(),
+            )
+            row += 1
+        ttk.Button(
+            controls,
+            text="Regenerate Literature Gears",
+            command=self._physical_geometry_changed,
+        ).grid(row=row, column=0, columnspan=2, sticky="ew", pady=(4, 10))
         row += 1
 
         button_commands: tuple[tuple[str, Callable[[], None]], ...] = (
@@ -290,6 +341,17 @@ class ShoulderGearDesignerGUI:
         self.settings.show_ratio_graph = enabled
         self.settings.show_pitch_curves = enabled
         self._render()
+
+    def _physical_geometry_changed(self) -> None:
+        """Regenerate only the tooth/body geometry on locked pitch curves."""
+        self.printable_pair = None
+        if self.pathway_var.get() == "Literature printable gears":
+            try:
+                self._ensure_printable_pair()
+                self._camera_limits = None
+                self._render()
+            except (tk.TclError, ValueError) as error:
+                messagebox.showerror("Invalid physical gear geometry", str(error))
 
     def _slider_changed(self, raw_value: str) -> None:
         self.simulation.animator.pause()
@@ -506,6 +568,15 @@ class ShoulderGearDesignerGUI:
             self.printable_pair = load_literature_gear_pair(
                 str(model_path),
                 float(self.settings.center_distance),
+                float(self.module_var.get()),
+                float(self.pressure_angle_var.get()),
+                float(self.backlash_var.get()),
+                float(self.profile_relief_var.get()),
+                float(self.face_width_var.get()),
+                float(self.root_fillet_var.get()),
+                2.0,
+                float(self.center_offset_var.get()),
+                str(self.tooth_style_var.get()),
             )
         return self.printable_pair
 

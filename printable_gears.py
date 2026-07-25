@@ -32,6 +32,9 @@ class PrintableGearParameters:
     body_web_thickness_mm: float = 6.0
     root_fillet_radius_mm: float = 0.8
     keyway_width_mm: float = 0.0
+    tooth_style: str = "Spur"
+    helix_angle_deg: float = 20.0
+    helix_reference_radius_mm: float = 40.0
 
     @property
     def bore_radius_mm(self) -> float:
@@ -81,11 +84,19 @@ class PrintableGearPair:
     warning: str = BENCH_LABEL
 
 
-def _profile_from_polygon(polygon: Polygon) -> cq.Workplane:
+def _profile_from_polygon(
+    polygon: Polygon,
+    *,
+    z_offset_mm: float = 0.0,
+    rotation_deg: float = 0.0,
+) -> cq.Workplane:
     """Create a CadQuery pending-wire profile including every open cutout."""
 
     exterior = list(polygon.exterior.coords)[:-1]
-    profile = cq.Workplane("XY").polyline(exterior).close()
+    profile = cq.Workplane(
+        cq.Plane(origin=(0.0, 0.0, z_offset_mm))
+    ).transformed(rotate=(0.0, 0.0, rotation_deg))
+    profile = profile.polyline(exterior).close()
     for interior in polygon.interiors:
         points = list(interior.coords)[:-1]
         profile = profile.moveTo(*points[0]).polyline(points[1:]).close()
@@ -123,10 +134,44 @@ def _make_solid(
     name: str,
     polygon: Polygon,
     parameters: PrintableGearParameters,
+    handedness: float,
 ) -> PrintableGearSolid:
-    base = _profile_from_polygon(polygon).extrude(
-        parameters.gear_thickness_mm
-    )
+    style = parameters.tooth_style
+    if style == "Spur":
+        base = _profile_from_polygon(polygon).extrude(
+            parameters.gear_thickness_mm
+        )
+    else:
+        if style not in ("Helical", "Herringbone"):
+            raise ValueError(f"Unsupported tooth style: {style}")
+        beta = np.radians(parameters.helix_angle_deg)
+        if style == "Helical":
+            twist = handedness * np.degrees(
+                np.tan(beta)
+                * parameters.gear_thickness_mm
+                / parameters.helix_reference_radius_mm
+            )
+            base = _profile_from_polygon(polygon).twistExtrude(
+                parameters.gear_thickness_mm,
+                twist,
+            )
+        else:
+            half = parameters.gear_thickness_mm / 2.0
+            half_twist = handedness * np.degrees(
+                np.tan(beta)
+                * half
+                / parameters.helix_reference_radius_mm
+            )
+            lower = _profile_from_polygon(polygon).twistExtrude(
+                half,
+                half_twist,
+            )
+            upper = _profile_from_polygon(
+                polygon,
+                z_offset_mm=half,
+                rotation_deg=half_twist,
+            ).twistExtrude(half, -half_twist)
+            base = lower.union(upper).clean()
     hub_extension = (
         cq.Workplane("XY")
         .circle(parameters.hub_diameter_mm / 2.0)
@@ -181,10 +226,16 @@ def generate_printable_gears(
     if not prototype.validation.all_practical_gates_pass:
         raise ValueError("The 2-D prototype did not pass its practical gates.")
     input_gear = _make_solid(
-        "Literature input gear", prototype.input_blank.polygon, parameters
+        "Literature input gear",
+        prototype.input_blank.polygon,
+        parameters,
+        1.0,
     )
     output_gear = _make_solid(
-        "Literature output gear", prototype.output_blank.polygon, parameters
+        "Literature output gear",
+        prototype.output_blank.polygon,
+        parameters,
+        -1.0,
     )
     if not input_gear.validation.passed or not output_gear.validation.passed:
         raise ValueError("CadQuery did not produce two valid connected solids.")

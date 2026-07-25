@@ -38,12 +38,22 @@ class LiteratureGearPair:
     pathway_name = "literature_printable_gears"
     display_label = "Research visualization"
 
-    def __init__(self, prototype: BenchPrototype) -> None:
+    def __init__(
+        self,
+        prototype: BenchPrototype,
+        assembly_center_offset_mm: float = 0.0,
+        tooth_style: str = "Spur",
+    ) -> None:
         self.prototype = prototype
         self.transmission = prototype.transmission
         self.valid_range_deg = self.transmission.valid_range_deg
-        self.center_distance = prototype.pitch_data.center_distance
+        self.nominal_center_distance = prototype.pitch_data.center_distance
+        self.assembly_center_offset_mm = float(assembly_center_offset_mm)
+        self.center_distance = (
+            self.nominal_center_distance + self.assembly_center_offset_mm
+        )
         self.source = "McClure2001"
+        self.tooth_style = tooth_style
 
     @staticmethod
     def _check(elevation_deg: float, valid_range: tuple[float, float]) -> float:
@@ -194,10 +204,32 @@ class LiteratureGearPair:
 def load_literature_gear_pair(
     model_path: str,
     center_distance: float = 120.0,
+    module_mm: float = 2.5,
+    pressure_angle_deg: float = 20.0,
+    backlash_mm: float = 0.45,
+    profile_relief_mm: float = 0.30,
+    face_width_mm: float = 8.0,
+    root_fillet_mm: float = 0.8,
+    tooth_root_embed_mm: float = 1.5,
+    center_distance_offset_mm: float = 0.0,
+    tooth_style: str = "Spur",
 ) -> LiteratureGearPair:
     model = LiteratureShoulderModel(Path(model_path))
     prototype = build_bench_prototype(
         model,
-        BenchPrototypeConfig(center_distance_mm=center_distance),
+        BenchPrototypeConfig(
+            center_distance_mm=center_distance,
+            module_mm=module_mm,
+            pressure_angle_deg=pressure_angle_deg,
+            backlash_mm=backlash_mm,
+            profile_relief_mm=profile_relief_mm,
+            gear_thickness_mm=face_width_mm,
+            root_fillet_radius_mm=root_fillet_mm,
+            tooth_root_embed_mm=tooth_root_embed_mm,
+        ),
     )
-    return LiteratureGearPair(prototype)
+    return LiteratureGearPair(
+        prototype,
+        center_distance_offset_mm,
+        tooth_style,
+    )
