@@ -2491,7 +2491,7 @@ export const literatureSectorGearPair = defineFeature(function(context is Contex
         // cylindrical through-holes instead of accidentally extruding the
         // inner sketch region as a plug.
         fCylinder(context, id + "inputBoreTool", {
-            "bottomCenter" : vector(0, 0, -1) * millimeter,
+            "bottomCenter" : vector(0, 0, -1) * millimeter,it wo
             "topCenter" : vector(0, 0,
                 definition.thickness / millimeter + 1) * millimeter,
             "radius" : definition.boreDiameter / 2
