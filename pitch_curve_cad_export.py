@@ -61,6 +61,24 @@ class PitchCurveArtifact:
     validation: PitchCurveExportValidation
 
 
+@dataclass(frozen=True)
+class DualPitchPathValidation:
+    passed: bool
+    solid_count: int
+    separate_bodies: bool
+    thickness_mm: float
+    input_axis: tuple[float, float]
+    output_axis: tuple[float, float]
+    shaft_hole_diameter_mm: float
+    input_hole_clear: bool
+    output_hole_clear: bool
+    center_distance_mm: float
+    body_distance_mm: float
+    operating_contact: bool
+    input_pitch_samples_unchanged: bool
+    output_pitch_samples_unchanged: bool
+
+
 def load_committed_pitch_curves(
     source_csv: str | Path,
     *,
@@ -287,3 +305,153 @@ def export_pitch_curve_solids(
     )
     paths.append(validation_path)
     return input_artifact, output_artifact, tuple(paths)
+
+
+def _minimal_axis_support(
+    artifact: PitchCurveArtifact,
+    *,
+    thickness_mm: float,
+    hole_radius_mm: float,
+    land_radius_mm: float,
+) -> cq.Workplane:
+    """Connect an axis land to the existing pitch face with two narrow webs."""
+    base = artifact.solid
+    land = (
+        cq.Workplane("XY")
+        .circle(land_radius_mm)
+        .extrude(thickness_mm)
+    )
+    connectors = []
+    for endpoint in (
+        artifact.source_points[0],
+        artifact.source_points[-1],
+    ):
+        direction = endpoint / np.linalg.norm(endpoint)
+        tangent = np.array([-direction[1], direction[0]])
+        half_width = max(1.5, 0.55 * land_radius_mm)
+        near = direction * (0.65 * land_radius_mm)
+        far = endpoint
+        polygon = [
+            tuple(near - half_width * tangent),
+            tuple(near + half_width * tangent),
+            tuple(far + half_width * tangent),
+            tuple(far - half_width * tangent),
+        ]
+        connectors.append(
+            cq.Workplane("XY").polyline(polygon).close().extrude(thickness_mm)
+        )
+    result = base.union(land)
+    for connector in connectors:
+        result = result.union(connector)
+    hole = (
+        cq.Workplane("XY")
+        .circle(hole_radius_mm)
+        .extrude(thickness_mm + 2.0)
+        .translate((0.0, 0.0, -1.0))
+    )
+    return result.cut(hole).clean()
+
+
+def export_dual_operating_pitch_paths(
+    source_csv: str | Path,
+    destination_step: str | Path,
+    *,
+    thickness_mm: float = 2.0,
+    shaft_hole_diameter_mm: float = 4.0,
+) -> DualPitchPathValidation:
+    """Export two separate printable pitch-path bodies in operating position."""
+    input_points, output_points, center, center_error = (
+        load_committed_pitch_curves(source_csv)
+    )
+    input_artifact = build_pitch_curve_artifact(
+        "Input",
+        input_points,
+        thickness_mm=thickness_mm,
+        center_distance_mm=center,
+        maximum_center_error_mm=center_error,
+    )
+    output_artifact = build_pitch_curve_artifact(
+        "Output",
+        output_points,
+        thickness_mm=thickness_mm,
+        center_distance_mm=center,
+        maximum_center_error_mm=center_error,
+    )
+    hole_radius = shaft_hole_diameter_mm / 2.0
+    land_radius = max(5.0, hole_radius + 2.0)
+    input_body = _minimal_axis_support(
+        input_artifact,
+        thickness_mm=thickness_mm,
+        hole_radius_mm=hole_radius,
+        land_radius_mm=land_radius,
+    )
+    output_local = _minimal_axis_support(
+        output_artifact,
+        thickness_mm=thickness_mm,
+        hole_radius_mm=hole_radius,
+        land_radius_mm=land_radius,
+    )
+    output_body = output_local.translate((center, 0.0, 0.0))
+    first_shape = input_body.val()
+    second_shape = output_body.val()
+    compound = cq.Compound.makeCompound([first_shape, second_shape])
+    destination = Path(destination_step)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    cq.exporters.export(
+        compound,
+        str(destination),
+        exportType="STEP",
+        opt={"write_pcurves": True},
+    )
+
+    imported = cq.importers.importStep(str(destination)).val()
+    solids = imported.Solids()
+    input_probe = (
+        cq.Workplane("XY")
+        .circle(hole_radius * 0.95)
+        .extrude(thickness_mm + 2.0)
+        .translate((0.0, 0.0, -1.0))
+        .val()
+    )
+    output_probe = input_probe.moved(
+        cq.Location(cq.Vector(center, 0.0, 0.0))
+    )
+    input_clear = first_shape.intersect(input_probe).Volume() <= 1e-8
+    output_clear = second_shape.intersect(output_probe).Volume() <= 1e-8
+    body_distance = float(first_shape.distance(second_shape))
+    validation = DualPitchPathValidation(
+        passed=False,
+        solid_count=len(solids),
+        separate_bodies=len(solids) == 2,
+        thickness_mm=thickness_mm,
+        input_axis=(0.0, 0.0),
+        output_axis=(center, 0.0),
+        shaft_hole_diameter_mm=shaft_hole_diameter_mm,
+        input_hole_clear=input_clear,
+        output_hole_clear=output_clear,
+        center_distance_mm=center,
+        body_distance_mm=body_distance,
+        operating_contact=body_distance <= 1e-5,
+        input_pitch_samples_unchanged=np.array_equal(
+            input_points, input_artifact.source_points
+        ),
+        output_pitch_samples_unchanged=np.array_equal(
+            output_points, output_artifact.source_points
+        ),
+    )
+    passed = all(
+        (
+            validation.separate_bodies,
+            input_clear,
+            output_clear,
+            validation.operating_contact,
+            validation.input_pitch_samples_unchanged,
+            validation.output_pitch_samples_unchanged,
+            math.isclose(
+                validation.center_distance_mm, 120.0, abs_tol=1e-9
+            ),
+        )
+    )
+    return DualPitchPathValidation(
+        **{**asdict(validation), "passed": passed}
+    )
