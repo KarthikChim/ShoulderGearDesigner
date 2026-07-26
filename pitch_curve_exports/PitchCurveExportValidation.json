@@ -1,0 +1,42 @@
+{
+  "source": "/Users/karth/Documents/Shoulder Abduction Model/ShoulderGearDesigner/validation_outputs/LiteratureSectorPitchCurves.csv",
+  "source_candidate": "regularized",
+  "teeth_generated": false,
+  "thickness_mm": 8.0,
+  "input": {
+    "member": "Input",
+    "source_candidate": "regularized",
+    "sample_count": 4001,
+    "source_curve_unchanged": true,
+    "open_literature_curve": true,
+    "closure_method": "straight endpoint chord; pitch samples unchanged",
+    "closed_profile": true,
+    "no_self_intersections": true,
+    "valid_step_solid": true,
+    "one_body": true,
+    "thickness_mm": 8.0,
+    "measured_thickness_mm": 8.000000199999999,
+    "center_distance_mm": 120.0,
+    "maximum_center_distance_error_mm": 2.842170943040401e-14,
+    "volume_mm3": 9013.079454365314,
+    "passed": true
+  },
+  "output": {
+    "member": "Output",
+    "source_candidate": "regularized",
+    "sample_count": 4001,
+    "source_curve_unchanged": true,
+    "open_literature_curve": true,
+    "closure_method": "straight endpoint chord; pitch samples unchanged",
+    "closed_profile": true,
+    "no_self_intersections": true,
+    "valid_step_solid": true,
+    "one_body": true,
+    "thickness_mm": 8.0,
+    "measured_thickness_mm": 8.000000199999999,
+    "center_distance_mm": 120.0,
+    "maximum_center_distance_error_mm": 2.842170943040401e-14,
+    "volume_mm3": 3413.377198954676,
+    "passed": true
+  }
+}
