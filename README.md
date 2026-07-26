@@ -16,6 +16,28 @@ It writes STEP (editable CAD), STL (slicing), DXF, SVG, and a JSON validation
 report to `standard_rack_outputs/`. The rack uses exact straight generating
 flanks; the matching pinion contains the analytical involute flanks.
 
+## Rolling rack-envelope non-circular teeth
+
+`rolling_envelope.py` is now the tooth-generation authority for the
+literature-derived non-circular sectors. It uses `generate_rack_tooth()` as a
+physical generating cutter, advances the cutter by pitch-curve arc length
+without slip, joins consecutive cutter poses into a continuous swept envelope,
+and subtracts that envelope from each sector blank. The output member is
+generated independently by the same method with conjugate half-pitch phasing.
+
+The literature GUI's Advanced Debug controls can display:
+
+- pitch curves and equal-arc pitch points;
+- the current rack-cutter position;
+- the complete cutter trajectory;
+- the swept cutter envelope;
+- the final trimmed gear bodies and conjugate animation.
+
+The committed validator checks matched pitch-curve travel, finite positive
+velocity ratio, complete-motion contact, positive-area interference, and
+printable root depth. GUI tooth outlines are partitions extracted after the
+finished body is generated; they never participate in tooth construction.
+
 ## Literature biomechanics engine
 
 The authoritative literature pipeline is isolated in

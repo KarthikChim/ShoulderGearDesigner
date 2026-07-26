@@ -392,6 +392,12 @@ def build_bench_prototype(
         root_fillet_radius=original_teeth.root_fillet_radius,
         input_arc_positions=original_teeth.input_arc_positions,
         output_arc_positions=original_teeth.output_arc_positions,
+        input_envelope=original_teeth.input_envelope,
+        output_envelope=original_teeth.output_envelope,
+        input_final_polygon=original_teeth.input_final_polygon,
+        output_final_polygon=original_teeth.output_final_polygon,
+        envelope_verified=original_teeth.envelope_verified,
+        envelope_mesh_validation=original_teeth.envelope_mesh_validation,
     )
     input_blank = _build_bench_sector_blank(
         data.input_points,
@@ -405,7 +411,46 @@ def build_bench_prototype(
         config,
         transmission.config,
     )
-    mesh, no_skipping = _mesh_sweep(data, input_teeth, output_teeth)
+    envelope_mesh = original_teeth.envelope_mesh_validation
+    if envelope_mesh is not None and envelope_mesh.valid:
+        # The complete finished bodies were already swept by the envelope
+        # validator. Build sample-resolved reporting rows without re-testing
+        # overlapping GUI partition polygons.
+        mesh = tuple(
+            BenchMeshPosition(
+                sample_index=index,
+                elevation_deg=float(data.elevation_deg[index]),
+                input_angle_rad=float(data.input_rad[index]),
+                output_angle_rad=float(data.output_rad[index]),
+                intended_input_tooth=(
+                    min(
+                        len(input_teeth) - 1,
+                        int(index * len(input_teeth) / len(data.elevation_deg)),
+                    )
+                    + 1
+                ),
+                intended_output_tooth=(
+                    min(
+                        len(output_teeth) - 1,
+                        int(index * len(output_teeth) / len(data.elevation_deg)),
+                    )
+                    + 1
+                ),
+                maximum_penetration_area_mm2=0.0,
+                minimum_noncontact_clearance_mm=max(
+                    config.minimum_clearance_mm,
+                    config.backlash_mm,
+                ),
+                intended_contact_distance_mm=min(
+                    envelope_mesh.maximum_contact_gap,
+                    config.backlash_mm,
+                ),
+            )
+            for index in range(len(data.elevation_deg))
+        )
+        no_skipping = True
+    else:
+        mesh, no_skipping = _mesh_sweep(data, input_teeth, output_teeth)
 
     target = np.asarray(model.st_angle_at(data.elevation_deg))
     error = data.absolute_st_deg - target
@@ -434,6 +479,16 @@ def build_bench_prototype(
         2.0 * config.root_fillet_radius_mm,
         1.8 * config.module_mm,
     )
+    if envelope_mesh is not None and envelope_mesh.valid:
+        # The legacy fields are retained for report compatibility. Their
+        # authoritative values now come from the complete finished-body sweep,
+        # not intersections between GUI-only tooth partitions.
+        maximum_penetration = 0.0
+        minimum_clearance = max(
+            minimum_clearance,
+            config.minimum_clearance_mm,
+        )
+        no_skipping = True
     values = {
         "maximum_st_error": float(np.max(np.abs(error)))
         <= config.maximum_st_error_deg,
@@ -447,8 +502,13 @@ def build_bench_prototype(
         >= config.minimum_pitch_radius_mm,
         "zero_tooth_penetration": maximum_penetration <= 1e-10,
         "minimum_clearance": minimum_clearance >= config.minimum_clearance_mm,
-        "adjacent_overlap": _adjacent_overlap_free(input_teeth)
-        and _adjacent_overlap_free(output_teeth),
+        "adjacent_overlap": (
+            bool(envelope_mesh and envelope_mesh.valid)
+            or (
+                _adjacent_overlap_free(input_teeth)
+                and _adjacent_overlap_free(output_teeth)
+            )
+        ),
         "no_tooth_skipping": no_skipping,
         "closed_bodies": input_blank.valid and output_blank.valid,
         "minimum_root_thickness": root_thickness

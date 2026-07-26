@@ -75,6 +75,9 @@ class ShoulderGearDesignerGUI:
         self.show_centerlines_var = tk.BooleanVar(value=False)
         self.show_raw_teeth_var = tk.BooleanVar(value=False)
         self.show_final_gear_var = tk.BooleanVar(value=True)
+        self.show_rack_position_var = tk.BooleanVar(value=False)
+        self.show_cutter_motion_var = tk.BooleanVar(value=False)
+        self.show_cutter_envelope_var = tk.BooleanVar(value=False)
         self.pathway_var = tk.StringVar(value="Legacy")
         self.module_var = tk.DoubleVar(value=2.5)
         self.pressure_angle_var = tk.DoubleVar(value=20.0)
@@ -261,6 +264,9 @@ class ShoulderGearDesignerGUI:
             ("Show local tangents", self.show_tangents_var),
             ("Show tooth centerlines", self.show_centerlines_var),
             ("Show raw tooth outlines", self.show_raw_teeth_var),
+            ("Show rack position", self.show_rack_position_var),
+            ("Show cutter motion", self.show_cutter_motion_var),
+            ("Show cutter envelope", self.show_cutter_envelope_var),
             ("Show final trimmed gear", self.show_final_gear_var),
         ):
             ttk.Checkbutton(
@@ -459,6 +465,9 @@ class ShoulderGearDesignerGUI:
                 show_tangents=self.show_tangents_var.get(),
                 show_tooth_centerlines=self.show_centerlines_var.get(),
                 show_raw_tooth_outlines=self.show_raw_teeth_var.get(),
+                show_rack_position=self.show_rack_position_var.get(),
+                show_cutter_motion=self.show_cutter_motion_var.get(),
+                show_cutter_envelope=self.show_cutter_envelope_var.get(),
                 show_final_gear=self.show_final_gear_var.get(),
             )
             if render_state.collision_area > 1e-7:

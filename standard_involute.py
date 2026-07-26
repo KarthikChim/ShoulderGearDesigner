@@ -60,6 +60,7 @@ class StandardGearParameters:
     rack_body_height: float = 6.0
     face_width: float = 10.0
     profile_samples: int = 48
+    rack_is_cutter: bool = False
 
     @property
     def pressure_angle(self) -> float:
@@ -83,8 +84,11 @@ class StandardGearParameters:
 
     @property
     def pitch_tooth_thickness(self) -> float:
-        # Total requested backlash is split equally across rack and pinion.
-        return self.circular_pitch / 2.0 - self.backlash / 2.0
+        # A finished rack tooth is thinned; a generating cutter tooth is
+        # widened. Two members cut by the widened rack therefore retain the
+        # requested assembled circumferential clearance.
+        sign = 1.0 if self.rack_is_cutter else -1.0
+        return self.circular_pitch / 2.0 + sign * self.backlash / 2.0
 
     @property
     def pitch_radius(self) -> float:

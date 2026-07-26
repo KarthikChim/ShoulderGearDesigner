@@ -130,6 +130,12 @@ class SectorToothGeometry:
     root_fillet_radius: float
     input_arc_positions: FloatArray
     output_arc_positions: FloatArray
+    input_envelope: object | None = None
+    output_envelope: object | None = None
+    input_final_polygon: Polygon | None = None
+    output_final_polygon: Polygon | None = None
+    envelope_verified: bool = False
+    envelope_mesh_validation: object | None = None
 
 
 @dataclass(frozen=True)
@@ -446,88 +452,75 @@ def _sample_polyline(
 def generate_sector_teeth(
     data: SectorPitchCurveData, config: SectorDesignConfig
 ) -> SectorToothGeometry:
-    """Place one shared standard-rack tooth profile by open-curve arc length.
+    """Cut both literature sectors with a continuous rolling rack envelope.
 
-    The local trapezoid is the material complement of a 20° straight-sided
-    rack cutter.  Both members use identical module, pressure angle, addendum,
-    dedendum, backlash, and root fillet.  No polygon is emitted beyond the
-    active literature curve.
+    ``input_teeth`` and ``output_teeth`` are post-process debug partitions
+    extracted from the completed envelope bodies. They are never independently
+    placed construction polygons.
     """
+    from rolling_envelope import (
+        conjugate_rolling_envelopes,
+        validate_conjugate_envelopes,
+    )
+    from standard_involute import StandardGearParameters
 
-    pitch = np.pi * config.module
     addendum = config.addendum_factor * config.module
     dedendum = config.dedendum_factor * config.module
     fillet = config.root_fillet_factor * config.module
-    alpha = np.radians(config.pressure_angle_deg)
-
-    def build(points: FloatArray, phase: float):
-        cumulative, length = _arc_parameter(points)
-        count = max(1, int(np.floor(length / pitch)))
-        leftover = length - (count - 1) * pitch
-        start = max(pitch * 0.5, leftover * 0.5)
-        positions = start + np.arange(count) * pitch
-        positions = positions[positions <= length - pitch * 0.5]
-        origins, tangents, normals = _sample_polyline(points, cumulative, positions)
-        # Profile relief is applied analytically as a normal displacement of
-        # each straight rack flank. Its tangential component is relief/cos(α).
-        # No polygon buffer/offset/smoothing operation is used.
-        flank_relief = config.profile_relief / max(np.cos(alpha), 1e-12)
-        half_pitch = max(
-            0.05 * config.module,
-            pitch / 4.0 - config.backlash / 2.0 - flank_relief,
-        )
-        half_tip = max(
-            0.03 * config.module, half_pitch - addendum * np.tan(alpha)
-        )
-        half_root = half_pitch + dedendum * np.tan(alpha)
-        polygons: list[FloatArray] = []
-        for origin, tangent, normal in zip(origins, tangents, normals):
-            local = np.array(
-                [
-                    [-half_root, -dedendum],
-                    [-half_tip, addendum],
-                    [half_tip, addendum],
-                    [half_root, -dedendum],
-                ],
-                dtype=np.float64,
-            )
-            # Opposite half-pitch assembly phase is represented by shifting
-            # the output arc locations, making input teeth face output gaps.
-            shifted_origin = origin + phase * pitch * tangent
-            world = (
-                shifted_origin
-                + local[:, :1] * tangent
-                + local[:, 1:] * normal
-            )
-            # The four vertices are the exact rack-generated root-left,
-            # tip-left, tip-right, and root-right corners. Keeping this as an
-            # explicit polygon preserves two straight pressure-angle flanks,
-            # a finite tip land, and a finite root land.
-            polygons.append(np.vstack((world, world[0])))
-        _, _, normals_dense = _sample_polyline(
-            points, cumulative, np.minimum(cumulative, length)
-        )
-        root = points - dedendum * normals_dense
-        return tuple(polygons), root, positions
-
-    input_teeth, input_root, input_positions = build(data.input_points, 0.0)
-    output_teeth, output_root, output_positions = build(data.output_points, 0.5)
+    parameters = StandardGearParameters(
+        module=config.module,
+        pressure_angle_deg=config.pressure_angle_deg,
+        addendum_factor=config.addendum_factor,
+        dedendum_factor=config.dedendum_factor,
+        backlash=config.backlash,
+        root_fillet_radius=fillet,
+        # Counts do not define the open sectors; valid placeholders satisfy
+        # the canonical parameter object's circular-pinion checks.
+        rack_teeth=8,
+        pinion_teeth=24,
+        profile_samples=32,
+    )
+    input_result, output_result = conjugate_rolling_envelopes(
+        data.input_points,
+        data.output_points,
+        parameters,
+        samples_per_pitch=24,
+    )
+    mesh_validation = validate_conjugate_envelopes(
+        input_result,
+        output_result,
+        data.input_rad,
+        data.output_rad,
+        data.center_distance,
+        data.ratio,
+        backlash=config.backlash,
+    )
     return SectorToothGeometry(
         candidate=data.candidate,
-        input_teeth=input_teeth,
-        output_teeth=output_teeth,
-        input_root_curve=input_root,
-        output_root_curve=output_root,
-        input_tooth_count=len(input_teeth),
-        output_tooth_count=len(output_teeth),
+        input_teeth=input_result.tooth_regions,
+        output_teeth=output_result.tooth_regions,
+        input_root_curve=input_result.root_curve,
+        output_root_curve=output_result.root_curve,
+        input_tooth_count=len(input_result.tooth_regions),
+        output_tooth_count=len(output_result.tooth_regions),
         module=config.module,
         pressure_angle_deg=config.pressure_angle_deg,
         addendum=addendum,
         dedendum=dedendum,
         backlash=config.backlash,
         root_fillet_radius=fillet,
-        input_arc_positions=input_positions,
-        output_arc_positions=output_positions,
+        input_arc_positions=input_result.pitch_arc_positions,
+        output_arc_positions=output_result.pitch_arc_positions,
+        input_envelope=input_result,
+        output_envelope=output_result,
+        input_final_polygon=input_result.final_polygon,
+        output_final_polygon=output_result.final_polygon,
+        envelope_verified=(
+            input_result.validation.valid
+            and output_result.validation.valid
+            and mesh_validation.valid
+        ),
+        envelope_mesh_validation=mesh_validation,
     )
 
 

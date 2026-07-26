@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import matplotlib.axes
 import matplotlib.patches as patches
 import numpy as np
+from shapely import affinity
 from shapely.geometry import Polygon
 
 from gear import Gear
@@ -148,6 +149,9 @@ class Renderer:
         show_tangents: bool = False,
         show_tooth_centerlines: bool = False,
         show_raw_tooth_outlines: bool = False,
+        show_rack_position: bool = False,
+        show_cutter_motion: bool = False,
+        show_cutter_envelope: bool = False,
         show_final_gear: bool = True,
     ):
         """Draw the final connected literature-sector body polygons."""
@@ -155,6 +159,103 @@ class Renderer:
         state = pair.render_state_at(elevation_deg)
         axes = self.axes
         axes.clear()
+        envelope_results = (
+            pair.prototype.teeth.input_envelope,
+            pair.prototype.teeth.output_envelope,
+        )
+        body_transforms = (
+            (state.input_angle_rad, 0.0),
+            (state.output_angle_rad, pair.center_distance),
+        )
+
+        def transformed_geometry(geometry, angle, xoff):
+            result = affinity.rotate(
+                geometry, np.degrees(angle), origin=(0.0, 0.0)
+            )
+            return affinity.translate(result, xoff=xoff) if xoff else result
+
+        if show_cutter_envelope:
+            for result, (angle, xoff), color in zip(
+                envelope_results,
+                body_transforms,
+                ("#f97316", "#2563eb"),
+            ):
+                if result is None:
+                    continue
+                geometry = transformed_geometry(
+                    result.cutter_envelope, angle, xoff
+                )
+                members = (
+                    [geometry]
+                    if geometry.geom_type == "Polygon"
+                    else list(geometry.geoms)
+                )
+                for member in members:
+                    points = np.asarray(member.exterior.coords)
+                    axes.fill(
+                        points[:, 0],
+                        points[:, 1],
+                        color=color,
+                        alpha=0.12,
+                        zorder=1,
+                    )
+
+        if show_cutter_motion or show_rack_position:
+            fraction = (elevation_deg - pair.valid_range_deg[0]) / (
+                pair.valid_range_deg[1] - pair.valid_range_deg[0]
+            )
+            for result, (angle, xoff), color in zip(
+                envelope_results,
+                body_transforms,
+                ("#9a3412", "#1d4ed8"),
+            ):
+                if result is None:
+                    continue
+                if show_cutter_motion:
+                    origins = np.array(
+                        [
+                            pose.origin
+                            for pose in result.cutter_poses[
+                                :: max(1, len(result.cutter_poses) // 300)
+                            ]
+                        ]
+                    )
+                    c, s = np.cos(angle), np.sin(angle)
+                    rotation = np.array([[c, -s], [s, c]])
+                    origins = origins @ rotation.T + np.array([xoff, 0.0])
+                    axes.plot(
+                        origins[:, 0],
+                        origins[:, 1],
+                        ".",
+                        color=color,
+                        markersize=1.2,
+                        alpha=0.45,
+                        zorder=3,
+                    )
+                if show_rack_position:
+                    sample_count = max(
+                        pose.sample_index for pose in result.cutter_poses
+                    )
+                    selected = int(round(fraction * sample_count))
+                    poses = [
+                        pose
+                        for pose in result.cutter_poses
+                        if pose.sample_index == selected
+                    ]
+                    c, s = np.cos(angle), np.sin(angle)
+                    rotation = np.array([[c, -s], [s, c]])
+                    for pose in poses:
+                        points = pose.polygon @ rotation.T + np.array(
+                            [xoff, 0.0]
+                        )
+                        axes.plot(
+                            points[:, 0],
+                            points[:, 1],
+                            color=color,
+                            linewidth=0.8,
+                            alpha=0.8,
+                            zorder=15,
+                        )
         if show_final_gear:
             self._fill_polygon(
                 state.input_polygon,
