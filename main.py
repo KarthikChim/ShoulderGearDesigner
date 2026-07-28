@@ -8,7 +8,7 @@ import traceback
 from pathlib import Path
 from tkinter import messagebox
 
-from gui import ShoulderGearDesignerGUI
+from literature_pitch_gui import LiteraturePitchGUI
 
 
 def main() -> None:
@@ -25,7 +25,7 @@ def main() -> None:
     try:
         root = tk.Tk()
         root.geometry("1200x760")
-        ShoulderGearDesignerGUI(root)
+        LiteraturePitchGUI(root)
 
         # macOS can place a new Tk window behind PyCharm. Raise it temporarily,
         # then remove the always-on-top flag so it behaves like a normal window.
