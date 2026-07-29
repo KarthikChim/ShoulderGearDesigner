@@ -21,7 +21,7 @@ The raw literature curve is preserved unchanged. The regularized candidate enfor
 
 | Candidate | Decision | Max ST error | RMS ST error | Min radius | Contact ratio estimate | Teeth input/output |
 |---|---|---:|---:|---:|---:|---:|
-| Raw | GO FOR SOFTWARE SIMULATION | 0° | 0° | 0.0031653 | 1.331 | 29/29 |
+| Raw | GO FOR SOFTWARE SIMULATION | 0° | 0° | 0.0031653 | 1.181 | 1/1 |
 | Regularized | GO FOR SOFTWARE SIMULATION | 2.2260392° | 1.3282202° | 11.236 | 1.181 | 10/10 |
 
 ## Four-way comparison

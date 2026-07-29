@@ -48,6 +48,7 @@
     "addendum_factor": 1.0,
     "dedendum_factor": 1.25,
     "backlash": 0.15,
+    "profile_relief": 0.0,
     "root_fillet_factor": 0.3
   },
   "boundaries": {
@@ -118,11 +119,11 @@
     "continuous_tangent": false,
     "bounded_curvature": false,
     "active_boundary_continuous": true,
-    "adjacent_tooth_overlap_free": false,
+    "adjacent_tooth_overlap_free": true,
     "mating_interference_free": false,
     "minimum_root_thickness": 1.5021768528234767,
-    "undercut_risk": false,
-    "contact_ratio_estimate": 1.3309014068289726,
+    "undercut_risk": true,
+    "contact_ratio_estimate": 1.1809014068289727,
     "backlash_estimate": 0.15,
     "minimum_tip_clearance": 0.625,
     "hard_stops_present": true,
@@ -130,6 +131,7 @@
     "decision": "GO FOR SOFTWARE SIMULATION",
     "warnings": [
       "Pitch radius falls below the configured minimum.",
+      "Heuristic rack undercut screen failed.",
       "Complete sector blanks and loaded mating-interference analysis are absent.",
       "Contact ratio is an unloaded geometric estimate only.",
       "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
@@ -175,8 +177,8 @@
     ]
   },
   "tooth_counts": {
-    "raw_input": 29,
-    "raw_output": 29,
+    "raw_input": 1,
+    "raw_output": 1,
     "regularized_input": 10,
     "regularized_output": 10
   },
@@ -227,10 +229,11 @@
       "maximum_pitch_radius": 119.99683470387667,
       "maximum_curvature_proxy": 1.0000000000004547,
       "required_center_distance": 120.0,
-      "estimated_undercut_risk": false,
-      "estimated_contact_ratio": 1.3309014068289726,
+      "estimated_undercut_risk": true,
+      "estimated_contact_ratio": 1.1809014068289727,
       "warnings": [
         "Pitch radius falls below the configured minimum.",
+        "Heuristic rack undercut screen failed.",
         "Complete sector blanks and loaded mating-interference analysis are absent.",
         "Contact ratio is an unloaded geometric estimate only.",
         "Strength, fatigue, tolerances, bearings, hard-stop loads, and human safety are not validated."
