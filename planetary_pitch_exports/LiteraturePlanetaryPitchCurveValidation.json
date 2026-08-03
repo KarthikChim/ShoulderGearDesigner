@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "sample_count": 4001,
+  "valid_range_deg": [
+    11.0,
+    147.0
+  ],
+  "sun_stationary": true,
+  "carrier_matches_st": true,
+  "planet_matches_ht": true,
+  "center_distance_error_mm": 1.4210854715202004e-14,
+  "contact_coincidence_error_mm": 5.826883674891095e-14,
+  "tangent_alignment_error_deg": 0.02759597761041167,
+  "rolling_residual_mm_per_rad": 1.0658141036401503e-14,
+  "finite_positive_pitch_radii": true,
+  "no_sign_discontinuity": true,
+  "sun_curve_simple": true,
+  "planet_curve_simple": true,
+  "no_extrapolation": true,
+  "maximum_elevation_error_deg": 1.6538884343610288e-13,
+  "rms_elevation_error_deg": 7.706243880822002e-14,
+  "endpoint_elevation_error_deg": 1.526666247102488e-13
+}
