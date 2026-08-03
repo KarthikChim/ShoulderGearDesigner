@@ -4,8 +4,9 @@ Run from PyCharm or a terminal with:
 
     python export_planetary_pitch_steps.py
 
-Generated files contain spline edges only. They contain no teeth, faces,
-solids, bores, hubs, spokes, carrier bars, or reference circles.
+Generated files contain pitch-curve spline edges and 4 mm reference circles at
+the exact rotation axes. They contain no teeth, faces, solids, bores, hubs,
+spokes, or carrier bars.
 """
 
 from __future__ import annotations
@@ -32,11 +33,22 @@ def _spline_edge(points):
     return cq.Edge.makeSpline(vectors)
 
 
-def _export_edge(edge, destination: Path) -> None:
-    """Write a single edge as STEP geometry."""
+def _reference_circle(center_x: float, center_y: float):
+    """Create a 4 mm diameter wire circle at a rotation axis."""
     import cadquery as cq
 
-    compound = cq.Compound.makeCompound([edge])
+    return cq.Edge.makeCircle(
+        2.0,
+        cq.Vector(float(center_x), float(center_y), 0.0),
+        cq.Vector(0.0, 0.0, 1.0),
+    )
+
+
+def _export_edges(edges, destination: Path) -> None:
+    """Write independent wire edges as STEP geometry."""
+    import cadquery as cq
+
+    compound = cq.Compound.makeCompound(list(edges))
     cq.exporters.export(compound, str(destination), exportType="STEP")
 
 
@@ -82,11 +94,23 @@ def export_planetary_pitch_steps(
         "planet_assembled": output / "ShoulderPlanetPitchCurve_Assembled.step",
         "assembled_pair": output / "PlanetaryPitchCurvePair_Assembled.step",
     }
-    _export_edge(sun_edge, paths["sun"])
-    _export_edge(planet_local_edge, paths["planet_local"])
-    _export_edge(planet_assembled_edge, paths["planet_assembled"])
+    sun_axis = _reference_circle(0.0, 0.0)
+    planet_local_axis = _reference_circle(0.0, 0.0)
+    planet_assembled_axis = _reference_circle(
+        float(data.planet_center_points_world[start_index, 0]),
+        float(data.planet_center_points_world[start_index, 1]),
+    )
 
-    pair = cq.Compound.makeCompound([sun_edge, planet_assembled_edge])
+    _export_edges((sun_edge, sun_axis), paths["sun"])
+    _export_edges((planet_local_edge, planet_local_axis), paths["planet_local"])
+    _export_edges(
+        (planet_assembled_edge, planet_assembled_axis),
+        paths["planet_assembled"],
+    )
+
+    pair = cq.Compound.makeCompound(
+        [sun_edge, planet_assembled_edge, sun_axis, planet_assembled_axis]
+    )
     cq.exporters.export(pair, str(paths["assembled_pair"]), exportType="STEP")
 
     return paths
