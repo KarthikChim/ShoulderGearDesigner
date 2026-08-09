@@ -7,6 +7,7 @@ import pytest
 
 from literature_planetary import (
     assembled_planet_points,
+    extend_planetary_pitch_paths,
     rotate_points,
     synthesize_literature_planetary_pitch_curves,
     validate_planetary_pitch_curves,
@@ -89,3 +90,54 @@ def test_complete_validation_passes(planetary) -> None:
     assert report.maximum_elevation_error_deg < 0.02
     assert report.rms_elevation_error_deg < 0.02
     assert report.endpoint_elevation_error_deg < 0.02
+
+
+def test_mechanical_extensions_preserve_verified_pitch_curves(planetary) -> None:
+    extended = extend_planetary_pitch_paths(
+        planetary, module_mm=2.0, extension_teeth=4
+    )
+    start = extended.biological_start_index
+    end = extended.biological_end_index + 1
+    assert np.array_equal(
+        extended.sun_pitch_points_local[start:end],
+        planetary.sun_pitch_points_local,
+    )
+    assert np.array_equal(
+        extended.planet_pitch_points_local[start:end],
+        planetary.planet_pitch_points_local,
+    )
+
+
+def test_extensions_add_four_equal_pitch_lengths_per_end(planetary) -> None:
+    extended = extend_planetary_pitch_paths(
+        planetary, module_mm=2.0, extension_teeth=4, samples_per_tooth=128
+    )
+    expected = 4.0 * np.pi * 2.0
+    start = extended.biological_start_index
+    end = extended.biological_end_index
+
+    def arc_length(points) -> float:
+        return float(np.sum(np.linalg.norm(np.diff(points, axis=0), axis=1)))
+
+    sun_pre = arc_length(extended.sun_pitch_points_local[: start + 1])
+    sun_post = arc_length(extended.sun_pitch_points_local[end:])
+    planet_pre = arc_length(extended.planet_pitch_points_local[: start + 1])
+    planet_post = arc_length(extended.planet_pitch_points_local[end:])
+    assert sun_pre == pytest.approx(expected, abs=1e-4)
+    assert sun_post == pytest.approx(expected, abs=1e-4)
+    assert planet_pre == pytest.approx(expected, abs=1e-4)
+    assert planet_post == pytest.approx(expected, abs=1e-4)
+
+
+def test_extended_contacts_remain_coincident(planetary) -> None:
+    extended = extend_planetary_pitch_paths(planetary)
+    for index in np.linspace(
+        0, len(extended.carrier_angle_rad) - 1, 101, dtype=int
+    ):
+        planet_contact = rotate_points(
+            extended.planet_pitch_points_local[[index]],
+            extended.planet_absolute_angle_rad[index],
+        )[0] + extended.planet_center_points_world[index]
+        assert np.allclose(
+            planet_contact, extended.contact_points_world[index], atol=1e-9
+        )

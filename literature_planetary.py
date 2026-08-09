@@ -95,6 +95,32 @@ class PlanetaryValidation:
     endpoint_elevation_error_deg: float
 
 
+@dataclass(frozen=True)
+class ExtendedPlanetaryPitchPaths:
+    """Mechanical lead-in/out paths surrounding the verified motion sector.
+
+    These extensions continue the terminal rolling ratios only to keep teeth
+    engaged near mechanical stops. They are not extrapolated shoulder data.
+    ``biological_start_index`` and ``biological_end_index`` identify the exact
+    untouched 11-147 degree literature section inside the extended arrays.
+    """
+
+    carrier_angle_rad: FloatArray
+    planet_absolute_angle_rad: FloatArray
+    sun_pitch_radius_mm: FloatArray
+    planet_pitch_radius_mm: FloatArray
+    sun_pitch_points_local: FloatArray
+    planet_pitch_points_local: FloatArray
+    planet_center_points_world: FloatArray
+    contact_points_world: FloatArray
+    biological_start_index: int
+    biological_end_index: int
+    extension_teeth: int
+    module_mm: float
+    extension_pitch_length_mm: float
+    center_distance_mm: float
+
+
 def synthesize_literature_planetary_pitch_curves(
     source_csv: str | Path,
     *,
@@ -191,6 +217,140 @@ def rotate_points(points: FloatArray, angle_rad: float) -> FloatArray:
     sine = np.sin(angle_rad)
     rotation = np.array([[cosine, -sine], [sine, cosine]])
     return points @ rotation.T
+
+
+def extend_planetary_pitch_paths(
+    data: PlanetaryPitchCurveData,
+    *,
+    module_mm: float = 2.0,
+    extension_teeth: int = 4,
+    samples_per_tooth: int = 64,
+) -> ExtendedPlanetaryPitchPaths:
+    """Append equal rolling pitch length to both ends of both pitch paths.
+
+    One tooth pitch is ``pi * module``. At each endpoint the terminal radii and
+    velocity ratio are held constant. Consequently the sun continuation is a
+    circular arc with ``ds = r_s d(theta_c)`` and the planet continuation has
+    exactly the same arc length by the external rolling equation.
+
+    The original literature points are inserted without recalculation or
+    smoothing, so the verified biological section is numerically unchanged.
+    """
+    if module_mm <= 0.0:
+        raise ValueError("Module must be positive.")
+    if extension_teeth < 1:
+        raise ValueError("At least one extension tooth is required.")
+    if samples_per_tooth < 4:
+        raise ValueError("Use at least four samples per extension tooth.")
+
+    extension_length = float(extension_teeth * np.pi * module_mm)
+    extension_samples = extension_teeth * samples_per_tooth
+
+    radius_slope = np.gradient(
+        data.sun_pitch_radius_mm, data.carrier_angle_rad
+    )
+
+    def endpoint_extension(index: int, direction: float) -> tuple[FloatArray, ...]:
+        """Build a C1 continuation with the requested sun arc length."""
+        sun_radius = float(data.sun_pitch_radius_mm[index])
+        carrier_start = float(data.carrier_angle_rad[index])
+        planet_start = float(data.planet_absolute_angle_rad[index])
+        slope = float(radius_slope[index])
+
+        def sampled_extension(carrier_travel: float) -> tuple[FloatArray, ...]:
+            fraction = np.linspace(0.0, 1.0, extension_samples + 1)
+            offset_end = direction * carrier_travel
+            offset = offset_end * fraction
+            # Match dr/d(theta_c) at the biological endpoint and taper that
+            # derivative linearly to zero at the outside mechanical endpoint.
+            radii = sun_radius + slope * (
+                offset - offset**2 / (2.0 * offset_end)
+            )
+            carrier = carrier_start + offset
+            points = radii[:, None] * np.column_stack(
+                (np.cos(carrier), np.sin(carrier))
+            )
+            length = float(
+                np.sum(np.linalg.norm(np.diff(points, axis=0), axis=1))
+            )
+            return carrier, radii, points, np.asarray(length)
+
+        lower = 0.0
+        upper = extension_length / max(sun_radius, 1e-9)
+        for _ in range(20):
+            carrier, radii, _points, measured = sampled_extension(upper)
+            if (
+                float(measured) >= extension_length
+                and np.all(radii > 0.0)
+                and np.all(radii < data.center_distance_mm)
+            ):
+                break
+            upper *= 1.25
+        else:
+            raise ValueError("Could not construct a positive-radius endpoint extension.")
+
+        for _ in range(60):
+            midpoint = 0.5 * (lower + upper)
+            _carrier, _radii, _points, measured = sampled_extension(midpoint)
+            if float(measured) < extension_length:
+                lower = midpoint
+            else:
+                upper = midpoint
+
+        carrier, sun_radii, _points, _measured = sampled_extension(upper)
+        planet_radii = data.center_distance_mm - sun_radii
+        # From external rolling with a stationary sun:
+        # d(theta_p)/d(theta_c) = 1 + r_s/r_p.
+        planet_per_carrier = 1.0 + sun_radii / planet_radii
+        planet = planet_start + cumulative_trapezoid(
+            planet_per_carrier, carrier, initial=0.0
+        )
+
+        # sampled_extension is endpoint -> outside. Return arrays in global
+        # motion order and exclude the already-present biological endpoint.
+        if direction < 0.0:
+            return (
+                carrier[1:][::-1],
+                planet[1:][::-1],
+                sun_radii[1:][::-1],
+                planet_radii[1:][::-1],
+            )
+        return carrier[1:], planet[1:], sun_radii[1:], planet_radii[1:]
+
+    pre = endpoint_extension(0, -1.0)
+    post = endpoint_extension(-1, 1.0)
+    carrier = np.concatenate((pre[0], data.carrier_angle_rad, post[0]))
+    planet = np.concatenate((pre[1], data.planet_absolute_angle_rad, post[1]))
+    sun_radius = np.concatenate((pre[2], data.sun_pitch_radius_mm, post[2]))
+    planet_radius = np.concatenate((pre[3], data.planet_pitch_radius_mm, post[3]))
+
+    carrier_unit = np.column_stack((np.cos(carrier), np.sin(carrier)))
+    planet_center = data.center_distance_mm * carrier_unit
+    contact_world = sun_radius[:, None] * carrier_unit
+    sun_points = contact_world.copy()
+    planet_local_angle = carrier + np.pi - planet
+    planet_points = planet_radius[:, None] * np.column_stack(
+        (np.cos(planet_local_angle), np.sin(planet_local_angle))
+    )
+
+    biological_start = extension_samples
+    biological_end = biological_start + len(data.elevation_deg) - 1
+    return ExtendedPlanetaryPitchPaths(
+        carrier_angle_rad=carrier,
+        planet_absolute_angle_rad=planet,
+        sun_pitch_radius_mm=sun_radius,
+        planet_pitch_radius_mm=planet_radius,
+        sun_pitch_points_local=sun_points,
+        planet_pitch_points_local=planet_points,
+        planet_center_points_world=planet_center,
+        contact_points_world=contact_world,
+        biological_start_index=biological_start,
+        biological_end_index=biological_end,
+        extension_teeth=extension_teeth,
+        module_mm=float(module_mm),
+        extension_pitch_length_mm=extension_length,
+        center_distance_mm=data.center_distance_mm,
+    )
 
 
 def assembled_planet_points(data: PlanetaryPitchCurveData, index: int) -> FloatArray:
