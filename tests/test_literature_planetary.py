@@ -34,6 +34,7 @@ def test_verified_range_and_stationary_sun(planetary) -> None:
 
 
 def test_planet_center_tracks_carrier_at_constant_distance(planetary) -> None:
+    assert planetary.center_distance_mm == 143.0
     center_radius = np.linalg.norm(planetary.planet_center_points_world, axis=1)
     assert np.allclose(center_radius, planetary.center_distance_mm, atol=1e-10)
     center_angles = np.unwrap(

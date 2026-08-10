@@ -55,7 +55,7 @@ def _export_edges(edges, destination: Path) -> None:
 
 def export_planetary_pitch_steps(
     *,
-    center_distance_mm: float = 120.0,
+    center_distance_mm: float = 143.0,
     module_mm: float = 2.0,
     extension_teeth: int = 4,
     source_csv: str | Path = SOURCE,

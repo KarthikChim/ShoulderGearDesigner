@@ -124,7 +124,7 @@ class ExtendedPlanetaryPitchPaths:
 def synthesize_literature_planetary_pitch_curves(
     source_csv: str | Path,
     *,
-    center_distance_mm: float = 120.0,
+    center_distance_mm: float = 143.0,
     candidate: str = "regularized",
 ) -> PlanetaryPitchCurveData:
     """Generate stationary-sun and moving-planet pitch curves."""

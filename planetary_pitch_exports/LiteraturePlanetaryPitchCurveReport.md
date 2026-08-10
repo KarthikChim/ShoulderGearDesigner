@@ -25,10 +25,10 @@ rotate in opposite directions when measured relative to the carrier.
 - sun_stationary: True
 - carrier_matches_st: True
 - planet_matches_ht: True
-- center_distance_error_mm: 1.4210854715202004e-14
-- contact_coincidence_error_mm: 5.826883674891095e-14
+- center_distance_error_mm: 2.842170943040401e-14
+- contact_coincidence_error_mm: 6.050053388380548e-14
 - tangent_alignment_error_deg: 0.02759597761041167
-- rolling_residual_mm_per_rad: 1.0658141036401503e-14
+- rolling_residual_mm_per_rad: 1.4210854715202004e-14
 - finite_positive_pitch_radii: True
 - no_sign_discontinuity: True
 - sun_curve_simple: True
